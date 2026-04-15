@@ -206,3 +206,131 @@ export function getCompositionDetails(planet: Exoplanet): { label: string; descr
 
   return details
 }
+
+const EARTH_VALUES: Record<string, number> = {
+  temperature: 288,
+  radius: 1.0,
+  mass: 1.0,
+  density: 5.51,
+  orbital_period: 365.25,
+  distance_from_star: 1.0,
+}
+
+export function getEarthComparison(field: string, value: number | null): string {
+  if (value === null) return ''
+
+  if (field === 'gravity') {
+    // Gravity is derived, not a direct Earth value comparison
+    if (Math.abs(value - 1) < 0.05) return 'Similar to Earth'
+    if (value < 1) return `Would feel ${((1 - value) * 100).toFixed(0)}% lighter than on Earth`
+    return `Would feel ${value.toFixed(1)}x heavier`
+  }
+
+  const earthVal = EARTH_VALUES[field]
+  if (earthVal === undefined) return ''
+
+  const ratio = value / earthVal
+
+  if (field === 'temperature') {
+    const diffK = value - earthVal
+    if (Math.abs(diffK) < 15) return 'Similar to Earth'
+    if (diffK > 0) return `${diffK.toFixed(0)} K warmer than Earth`
+    return `${Math.abs(diffK).toFixed(0)} K cooler than Earth`
+  }
+
+  if (field === 'radius') {
+    if (Math.abs(ratio - 1) < 0.1) return 'Similar to Earth'
+    if (ratio > 1) return `${((ratio - 1) * 100).toFixed(0)}% larger than Earth`
+    return `${((1 - ratio) * 100).toFixed(0)}% smaller than Earth`
+  }
+
+  if (field === 'mass') {
+    if (Math.abs(ratio - 1) < 0.1) return 'Similar to Earth'
+    if (ratio > 1) return `${ratio.toFixed(1)}x Earth's mass`
+    return `${(ratio * 100).toFixed(0)}% of Earth's mass`
+  }
+
+  if (field === 'density') {
+    if (Math.abs(ratio - 1) < 0.1) return 'Similar to Earth'
+    if (ratio > 1) return `${((ratio - 1) * 100).toFixed(0)}% denser than Earth`
+    return `${((1 - ratio) * 100).toFixed(0)}% less dense than Earth`
+  }
+
+  if (field === 'orbital_period') {
+    if (Math.abs(ratio - 1) < 0.05) return 'Similar to an Earth year'
+    if (value < 1) return `Orbits in just ${(value * 24).toFixed(1)} hours`
+    if (value < 365) return `Year lasts ${value.toFixed(1)} Earth days`
+    return `Year lasts ${(value / 365.25).toFixed(1)} Earth years`
+  }
+
+  if (field === 'distance_from_star') {
+    if (Math.abs(ratio - 1) < 0.1) return 'Similar distance to its star as Earth'
+    if (ratio > 1) return `${ratio.toFixed(1)}x farther from its star than Earth is from the Sun`
+    return `${(ratio * 100).toFixed(0)}% of Earth's distance from the Sun`
+  }
+
+  return ''
+}
+
+export function generateComparison(a: Exoplanet, b: Exoplanet): string {
+  const parts: string[] = []
+
+  // Size comparison
+  if (a.pl_rade !== null && b.pl_rade !== null) {
+    const ratio = a.pl_rade / b.pl_rade
+    if (Math.abs(ratio - 1) < 0.1) {
+      parts.push(`${a.pl_name} and ${b.pl_name} are remarkably similar in size, both measuring close to ${a.pl_rade.toFixed(2)} Earth radii.`)
+    } else if (ratio > 1) {
+      parts.push(`${a.pl_name} is ${((ratio - 1) * 100).toFixed(0)}% larger in radius than ${b.pl_name}, making it the bigger world of the two.`)
+    } else {
+      parts.push(`${b.pl_name} is the larger planet, with a radius ${(((1 / ratio) - 1) * 100).toFixed(0)}% greater than ${a.pl_name}.`)
+    }
+  }
+
+  // Mass comparison
+  if (a.pl_masse !== null && b.pl_masse !== null) {
+    const ratio = a.pl_masse / b.pl_masse
+    if (Math.abs(ratio - 1) < 0.15) {
+      parts.push(`They carry similar mass, both around ${a.pl_masse.toFixed(1)} Earth masses.`)
+    } else if (ratio > 1) {
+      parts.push(`In terms of mass, ${a.pl_name} is ${ratio.toFixed(1)} times heavier than ${b.pl_name}.`)
+    } else {
+      parts.push(`${b.pl_name} is the more massive body, weighing ${(1 / ratio).toFixed(1)} times as much as ${a.pl_name}.`)
+    }
+  }
+
+  // Temperature comparison
+  if (a.pl_eqt !== null && b.pl_eqt !== null) {
+    const diff = a.pl_eqt - b.pl_eqt
+    if (Math.abs(diff) < 30) {
+      parts.push(`Both planets share similar equilibrium temperatures, hovering around ${a.pl_eqt.toFixed(0)} K.`)
+    } else if (diff > 0) {
+      parts.push(`${a.pl_name} runs significantly hotter at ${a.pl_eqt.toFixed(0)} K compared to ${b.pl_name}'s ${b.pl_eqt.toFixed(0)} K — a difference of ${diff.toFixed(0)} degrees.`)
+    } else {
+      parts.push(`${b.pl_name} is the warmer world at ${b.pl_eqt.toFixed(0)} K, while ${a.pl_name} sits at a cooler ${a.pl_eqt.toFixed(0)} K.`)
+    }
+  }
+
+  // Habitability comparison
+  const scoreDiff = a.habitability_score - b.habitability_score
+  if (Math.abs(scoreDiff) < 5) {
+    parts.push(`Their habitability scores are closely matched, both around ${a.habitability_score.toFixed(0)}/100.`)
+  } else {
+    const better = scoreDiff > 0 ? a : b
+    const worse = scoreDiff > 0 ? b : a
+    parts.push(`${better.pl_name} scores higher for potential habitability at ${better.habitability_score.toFixed(0)}/100 versus ${worse.pl_name}'s ${worse.habitability_score.toFixed(0)}/100.`)
+  }
+
+  // Orbital period comparison
+  if (a.pl_orbper !== null && b.pl_orbper !== null) {
+    if (a.pl_orbper < b.pl_orbper) {
+      parts.push(`While ${a.pl_name} completes an orbit in just ${a.pl_orbper.toFixed(1)} days, ${b.pl_name} takes a more leisurely ${b.pl_orbper.toFixed(1)} days to circle its star.`)
+    } else if (b.pl_orbper < a.pl_orbper) {
+      parts.push(`While ${b.pl_name} orbits much closer to its star with a ${b.pl_orbper.toFixed(1)}-day year, ${a.pl_name} takes ${a.pl_orbper.toFixed(1)} days to complete one orbit.`)
+    } else {
+      parts.push(`Both planets share nearly identical orbital periods of around ${a.pl_orbper.toFixed(1)} days.`)
+    }
+  }
+
+  return parts.join(' ')
+}

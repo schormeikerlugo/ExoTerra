@@ -5,7 +5,6 @@ import type { Exoplanet } from '../../data/types'
 import { getPlanetColors, getPlanetScale } from '../../utils/planetVisuals'
 import { planetNameToSeed, estimateWaterRatio } from '../../utils/planetSeed'
 import { getExoplanetTexture, getTextureBlend } from '../../utils/textureMap'
-import { Atmosphere } from '../Atmosphere/Atmosphere'
 import { Rings } from '../Rings/Rings'
 import { Moons } from '../Moons/Moons'
 
@@ -23,6 +22,7 @@ interface PlanetProps {
 
 export function Planet({ planet, onClick }: PlanetProps) {
   const meshRef = useRef<THREE.Mesh>(null)
+  const matRef = useRef<THREE.ShaderMaterial>(null)
 
   const planetName = planet.pl_name
   const scale = getPlanetScale(planet)
@@ -44,9 +44,10 @@ export function Planet({ planet, onClick }: PlanetProps) {
     surfaceTexture.wrapS = THREE.RepeatWrapping
     surfaceTexture.wrapT = THREE.RepeatWrapping
     surfaceTexture.anisotropy = 8
+    surfaceTexture.colorSpace = THREE.SRGBColorSpace
   }, [surfaceTexture])
 
-  // Create uniforms ONCE
+  // Create uniforms with the ACTUAL texture (not empty)
   const uniforms = useMemo(
     () => ({
       uBaseColor: { value: new THREE.Color() },
@@ -63,10 +64,10 @@ export function Planet({ planet, onClick }: PlanetProps) {
       uMass: { value: 1.0 },
       uDensity: { value: 5.5 },
       uAge: { value: 4.6 },
-      uSurfaceTexture: { value: new THREE.Texture() },
-      uTextureBlend: { value: 0.0 },
+      uSurfaceTexture: { value: surfaceTexture },
+      uTextureBlend: { value: textureBlend },
     }),
-    [],
+    [], // eslint-disable-line -- intentionally stable
   )
 
   // Update uniform values when planet changes
@@ -85,6 +86,11 @@ export function Planet({ planet, onClick }: PlanetProps) {
     uniforms.uAge.value = planet.st_age ?? 4.6
     uniforms.uSurfaceTexture.value = surfaceTexture
     uniforms.uTextureBlend.value = textureBlend
+
+    // Force material to recognize the new texture
+    if (matRef.current) {
+      matRef.current.uniformsNeedUpdate = true
+    }
   }, [planetName, colors, surfaceType, seed, waterRatio, surfaceTexture, textureBlend,
       planet.pl_eqt, planet.visual_has_clouds, planet.visual_cloud_density,
       planet.pl_rade, planet.pl_masse, planet.pl_dens, planet.st_age, uniforms])
@@ -102,6 +108,7 @@ export function Planet({ planet, onClick }: PlanetProps) {
       <mesh ref={meshRef} scale={scale} onClick={onClick}>
         <sphereGeometry args={[1, 128, 128]} />
         <shaderMaterial
+          ref={matRef}
           vertexShader={planetVertexShader}
           fragmentShader={planetFragmentShader}
           uniforms={uniforms}
@@ -109,13 +116,7 @@ export function Planet({ planet, onClick }: PlanetProps) {
         />
       </mesh>
 
-      {planet.has_atmosphere_likely && surfaceType !== 2 && surfaceType !== 3 && (
-        <Atmosphere
-          color={colors.atmosphereColor}
-          density={planet.visual_atmosphere_density}
-          scale={scale}
-        />
-      )}
+      {/* Atmosphere halo is now integrated in the planet shader */}
 
       {planet.visual_has_rings && <Rings planet={planet} scale={scale} />}
 

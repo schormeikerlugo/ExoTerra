@@ -22,28 +22,36 @@ export function ExplorerPage() {
   }, [planet, setSelectedPlanet])
 
   return (
-    <div style={{ display: 'flex', height: '100vh', backgroundColor: '#020617', color: '#e2e8f0', overflow: 'hidden' }}>
+    <div style={{ display: 'flex', height: '100vh', backgroundColor: '#000', color: 'rgba(255,255,255,0.6)', overflow: 'hidden' }}>
       {/* Left Sidebar */}
       <aside style={{
         width: 300, display: 'flex', flexDirection: 'column',
-        borderRight: '1px solid #1e293b', flexShrink: 0,
+        backgroundColor: '#0f0f0f',
+        borderRight: '1px solid rgba(255,255,255,0.06)',
+        flexShrink: 0,
       }}>
         <header style={{
           display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-          padding: 16, borderBottom: '1px solid #1e293b',
+          padding: 16,
+          borderBottom: '1px solid rgba(255,255,255,0.06)',
+          backgroundColor: '#0f0f0f',
         }}>
           <Link to="/" style={{ fontSize: 18, fontWeight: 700, textDecoration: 'none' }}>
-            <span style={{ color: '#60a5fa' }}>Exo</span><span style={{ color: '#fff' }}>Terra</span>
+            <span style={{ color: '#fff' }}>Exo</span><span style={{ color: '#fff' }}>Terra</span>
           </Link>
           <Link to="/" style={{
-            padding: '6px 12px', fontSize: 12, color: '#94a3b8', textDecoration: 'none',
-            backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: 6,
-          }}>
-            ← Catalog
+            padding: '6px 12px', fontSize: 12, color: 'rgba(255,255,255,0.4)', textDecoration: 'none',
+            backgroundColor: 'transparent', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8,
+            transition: 'background-color 0.15s',
+          }}
+          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.backgroundColor = 'rgba(255,255,255,0.04)' }}
+          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent' }}
+          >
+            Catalog
           </Link>
         </header>
 
-        <div style={{ borderBottom: '1px solid #1e293b' }}>
+        <div style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
           <FilterPanel />
         </div>
 
@@ -51,7 +59,7 @@ export function ExplorerPage() {
           {isLoading ? (
             <div style={{ display: 'flex', justifyContent: 'center', padding: 48 }}>
               <div style={{
-                width: 24, height: 24, border: '3px solid #1e293b', borderTop: '3px solid #3b82f6',
+                width: 24, height: 24, border: '3px solid rgba(255,255,255,0.1)', borderTop: '3px solid #fff',
                 borderRadius: '50%', animation: 'spin 0.8s linear infinite',
               }} />
             </div>
@@ -69,7 +77,9 @@ export function ExplorerPage() {
       {/* Right Sidebar */}
       <aside style={{
         width: 280, overflowY: 'auto',
-        borderLeft: '1px solid #1e293b', flexShrink: 0,
+        backgroundColor: '#0f0f0f',
+        borderLeft: '1px solid rgba(255,255,255,0.06)',
+        flexShrink: 0,
       }}>
         <PlanetHUD />
       </aside>

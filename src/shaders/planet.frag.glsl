@@ -434,25 +434,42 @@ vec3 iceSurface(vec3 pos) {
 void main() {
   vec3 pos = normalize(vPosition) * 2.0;
 
-  // Procedural surface
-  vec3 proceduralColor;
-  if      (uSurfaceType < 0.5) proceduralColor = rockySurface(pos);
-  else if (uSurfaceType < 1.5) proceduralColor = waterSurface(pos);
-  else if (uSurfaceType < 2.5) proceduralColor = gasSurface(pos);
-  else if (uSurfaceType < 3.5) proceduralColor = lavaSurface(pos);
-  else                          proceduralColor = iceSurface(pos);
+  vec3 surfaceColor;
 
-  // Sample real texture with seed-based UV offset for uniqueness
-  vec2 texUV = vUv;
-  texUV.x = fract(texUV.x + uSeed * 0.37);
-  texUV.y = fract(texUV.y + uSeed * 0.13);
-  vec3 textureColor = texture2D(uSurfaceTexture, texUV).rgb;
+  if (uTextureBlend > 0.99) {
+    // ── TEXTURE ONLY — skip all procedural generation ──
+    vec2 seedOff = vec2(fract(uSeed * 0.37), fract(uSeed * 0.13));
+    surfaceColor = texture2D(uSurfaceTexture, vUv + seedOff).rgb;
 
-  // Texture as base, procedural as color tint overlay
-  // At blend=0: full procedural, blend=1: full texture
-  vec3 surfaceColor = mix(proceduralColor, textureColor, uTextureBlend);
-  // Add procedural variation as subtle color shift on top
-  surfaceColor *= 0.75 + 0.5 * (proceduralColor * 0.5 + 0.5);
+    // Soften seam at UV wrap
+    float seamZone = smoothstep(0.0, 0.08, vUv.x) * smoothstep(0.0, 0.08, 1.0 - vUv.x);
+    vec3 texShifted = texture2D(uSurfaceTexture, vec2(vUv.x + 0.5, vUv.y) + seedOff).rgb;
+    surfaceColor = mix(texShifted, surfaceColor, seamZone);
+
+    // Soften polar seam
+    float polarZone = smoothstep(0.0, 0.1, vUv.y) * smoothstep(0.0, 0.1, 1.0 - vUv.y);
+    vec3 texPolar = texture2D(uSurfaceTexture, vec2(vUv.x + 0.25, 1.0 - vUv.y) + seedOff).rgb;
+    surfaceColor = mix(texPolar, surfaceColor, polarZone);
+  } else {
+    // ── PROCEDURAL (used when no texture or partial blend) ──
+    vec3 proceduralColor;
+    if      (uSurfaceType < 0.5) proceduralColor = rockySurface(pos);
+    else if (uSurfaceType < 1.5) proceduralColor = waterSurface(pos);
+    else if (uSurfaceType < 2.5) proceduralColor = gasSurface(pos);
+    else if (uSurfaceType < 3.5) proceduralColor = lavaSurface(pos);
+    else                          proceduralColor = iceSurface(pos);
+
+    if (uTextureBlend > 0.01) {
+      vec2 seedOff = vec2(fract(uSeed * 0.37), fract(uSeed * 0.13));
+      vec3 textureColor = texture2D(uSurfaceTexture, vUv + seedOff).rgb;
+      float seamZone = smoothstep(0.0, 0.08, vUv.x) * smoothstep(0.0, 0.08, 1.0 - vUv.x);
+      vec3 texShifted = texture2D(uSurfaceTexture, vec2(vUv.x + 0.5, vUv.y) + seedOff).rgb;
+      textureColor = mix(texShifted, textureColor, seamZone);
+      surfaceColor = mix(proceduralColor, textureColor, uTextureBlend);
+    } else {
+      surfaceColor = proceduralColor;
+    }
+  }
 
   // ── Clouds (only for water, rocky, ice — skip gas giants and lava) ──
   if (uCloudDensity > 0.01 && uSurfaceType < 1.5) {
@@ -476,13 +493,13 @@ void main() {
     surfaceColor += vec3(1.0, 0.3, 0.05) * glow * 0.5;
   }
 
-  // ── Lighting (clean, no orange artifacts) ──
+  // ── Lighting ──
   vec3 L = normalize(vec3(1.0, 0.3, 0.8));
   float NdotL = dot(vNormal, L);
-  float diff = smoothstep(-0.1, 1.0, NdotL);
+  float diff = smoothstep(-0.2, 1.0, NdotL);
 
-  // Simple ambient + diffuse
-  vec3 lit = surfaceColor * (0.06 + diff * 0.94);
+  // Softer lighting: higher ambient, less harsh contrast
+  vec3 lit = surfaceColor * (0.25 + diff * 0.75);
 
   // SSS for gas giants
   lit += step(1.5, uSurfaceType) * step(uSurfaceType, 2.5) *
@@ -497,26 +514,74 @@ void main() {
   float spec = pow(max(dot(vNormal, H), 0.0), 150.0);
   lit += spec * 0.15 * vec3(1.0, 0.97, 0.94) * step(0.5, uSurfaceType) * step(uSurfaceType, 1.5);
 
-  // ── Atmospheric halo — visible on all planets with atmosphere ──
+  // ── Atmospheric halo — unique per planet ──
   float rimGlow = pow(rim, 2.5);
   float rimTight = pow(rim, 5.0);
 
-  // Halo color based on planet type
+  // Sample surface color at the rim edge to derive atmosphere tint
+  // This makes the halo match what the planet actually looks like
+  vec3 rimSampleColor = surfaceColor;
+
+  // Derive halo from planet data + surface color
   vec3 haloColor;
-  if (uSurfaceType < 1.5) {
-    haloColor = vec3(0.3, 0.5, 0.95); // blue for rocky/water
+  float haloIntensity;
+
+  if (uSurfaceType < 0.5) {
+    // ROCKY — depends on temperature
+    if (uTemperature > 600.0) {
+      // Hot rocky: dim reddish/orange atmosphere from volcanic outgassing
+      float heat = clamp((uTemperature - 600.0) / 1000.0, 0.0, 1.0);
+      haloColor = mix(vec3(0.5, 0.25, 0.1), vec3(0.8, 0.25, 0.05), heat);
+      haloIntensity = 0.12 + heat * 0.08;
+    } else if (uTemperature < 150.0) {
+      // Cold rocky: very thin, grey-blue
+      haloColor = vec3(0.4, 0.45, 0.55);
+      haloIntensity = 0.06;
+    } else {
+      // Temperate rocky: thin blue-ish
+      haloColor = mix(vec3(0.3, 0.45, 0.8), rimSampleColor * 0.5 + 0.3, 0.3);
+      haloIntensity = 0.10;
+    }
+  } else if (uSurfaceType < 1.5) {
+    // WATER — Earth-like blue, intensity from atmosphere density
+    haloColor = vec3(0.25, 0.45, 0.9);
+    haloIntensity = 0.14;
   } else if (uSurfaceType < 2.5) {
-    haloColor = uBaseColor * 0.8;      // gas giant: tinted by atmosphere
+    // GAS GIANT — tinted by the planet's own band colors
+    if (uTemperature > 1000.0) {
+      // Hot Jupiter: copper/amber glow
+      float heat = clamp((uTemperature - 1000.0) / 1500.0, 0.0, 1.0);
+      haloColor = mix(vec3(0.7, 0.4, 0.15), vec3(0.9, 0.35, 0.08), heat);
+      haloIntensity = 0.15 + heat * 0.05;
+    } else {
+      // Cold gas giant: tinted by surface bands
+      haloColor = rimSampleColor * 0.6 + vec3(0.15, 0.15, 0.2);
+      haloColor = normalize(haloColor) * 0.5; // keep it subtle, not white
+      haloIntensity = 0.12;
+    }
   } else if (uSurfaceType < 3.5) {
-    haloColor = vec3(0.8, 0.3, 0.1);   // lava: orange glow
+    // LAVA — smoky dark atmosphere, orange/red glow from heat
+    float heat = clamp(uTemperature / 2000.0, 0.3, 1.0);
+    haloColor = mix(vec3(0.35, 0.10, 0.02), vec3(0.75, 0.20, 0.02), heat);
+    haloIntensity = 0.18 + heat * 0.10;
+    // Darken the lit edge so the halo color dominates, not the bright surface
+    lit *= 1.0 - rimGlow * 0.4;
   } else {
-    haloColor = vec3(0.4, 0.6, 0.9);   // ice: pale blue
+    // ICE — pale blue (already good, keep as is)
+    haloColor = vec3(0.35, 0.55, 0.85);
+    haloIntensity = 0.10;
   }
 
-  // Halo on lit side (stronger) + subtle on dark side
+  // Apply halo
   float litFactor = smoothstep(-0.2, 0.3, NdotL);
-  lit += rimGlow * haloColor * 0.15 * (0.3 + litFactor * 0.7);
-  lit += rimTight * haloColor * 0.08; // tight bright edge
+  vec3 haloContrib = haloColor * haloIntensity * (0.3 + litFactor * 0.7);
+
+  if (uSurfaceType > 2.5 && uSurfaceType < 3.5) {
+    // Lava: NO halo at all — the surface glow IS the atmosphere
+  } else {
+    lit += rimGlow * haloContrib;
+    lit += rimTight * haloColor * haloIntensity * 0.5;
+  }
 
   // Night side
   float night = smoothstep(0.0, -0.25, NdotL);

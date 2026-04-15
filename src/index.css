@@ -1,58 +1,30 @@
 @import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
 
-@theme {
-  --color-space-950: #020617;
-  --color-space-900: #0a0f1e;
-  --color-space-800: #111827;
-  --color-space-700: #1e293b;
-  --color-space-600: #334155;
-}
+* { margin: 0; padding: 0; box-sizing: border-box; }
 
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
-
-html {
-  width: 100%;
-  height: 100%;
-  background-color: #020617;
-}
-
-body {
+html, body {
   width: 100%;
   min-height: 100%;
-  background-color: #020617;
-  color: #e2e8f0;
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background-color: #000;
+  color: #ccc;
+  font-family: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
+  -webkit-font-smoothing: antialiased;
 }
 
-#root {
-  width: 100%;
-  min-height: 100vh;
-}
+#root { width: 100%; min-height: 100vh; }
 
-/* Custom scrollbar */
-::-webkit-scrollbar {
-  width: 5px;
-}
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-::-webkit-scrollbar-thumb {
-  background: #1e293b;
-  border-radius: 999px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: #334155;
-}
+::-webkit-scrollbar { display: none; }
+* { scrollbar-width: none; }
 
-input[type="range"] {
-  cursor: pointer;
-  height: 4px;
-}
+input[type="range"] { cursor: pointer; height: 4px; }
+select, button, a { cursor: pointer; }
+input:focus, select:focus, textarea:focus { outline: none; }
 
-select, button, a {
-  cursor: pointer;
+::selection { background: rgba(78, 205, 196, 0.2); color: #fff; }
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.planet-card-link:hover {
+  border-color: rgba(255,255,255,0.1) !important;
 }

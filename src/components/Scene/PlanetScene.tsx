@@ -10,7 +10,12 @@ import { Sun } from './Sun'
 import { useStore } from '../../store/useStore'
 import { isSolarSystemBody } from '../../data/solarSystem'
 
-export function PlanetScene() {
+interface PlanetSceneProps {
+  autoRotate?: boolean
+  enableZoom?: boolean
+}
+
+export function PlanetScene(props: PlanetSceneProps) {
   const selectedPlanet = useStore((s) => s.selectedPlanet)
 
   const solarBody = selectedPlanet
@@ -27,10 +32,10 @@ export function PlanetScene() {
           toneMappingExposure: 1.0,
         }}
       >
-        <color attach="background" args={['#030311']} />
+        <color attach="background" args={['#000000']} />
 
-        <ambientLight intensity={0.15} />
-        <directionalLight position={[5, 3, 5]} intensity={1.2} />
+        <ambientLight intensity={0.1} />
+        <directionalLight position={[5, 3, 5]} intensity={0.8} />
 
         <StarField />
         <Sun />
@@ -47,8 +52,9 @@ export function PlanetScene() {
           enablePan={false}
           minDistance={2}
           maxDistance={8}
-          autoRotate={!selectedPlanet}
+          autoRotate={props.autoRotate ?? !selectedPlanet}
           autoRotateSpeed={0.5}
+          enableZoom={props.enableZoom ?? true}
         />
 
         <EffectComposer>

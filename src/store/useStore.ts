@@ -26,6 +26,7 @@ const defaultFilters: FilterState = {
   radiusRange: [0, 30],
   massRange: [0, 10000],
   planetTypes: [],
+  discoveryMethods: [],
   habitableZoneOnly: false,
   minHabitabilityScore: 0,
   searchQuery: '',
@@ -61,6 +62,10 @@ function applyFilters(planets: Exoplanet[], filters: FilterState): Exoplanet[] {
     }
 
     if (filters.planetTypes.length > 0 && !filters.planetTypes.includes(p.planet_type)) {
+      return false
+    }
+
+    if (filters.discoveryMethods.length > 0 && !filters.discoveryMethods.includes(p.discoverymethod ?? '')) {
       return false
     }
 

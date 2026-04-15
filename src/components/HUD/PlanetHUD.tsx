@@ -1,5 +1,6 @@
 import { useStore } from '../../store/useStore'
 import { formatNumber, formatTemperature } from '../../utils/planetVisuals'
+import { getScoreColor, ACCENT, ACCENT_15 } from '../../constants/colors'
 
 const typeLabels: Record<string, string> = {
   rocky: 'Rocky', super_earth: 'Super Earth', gas_giant: 'Gas Giant',
@@ -13,22 +14,21 @@ export function PlanetHUD() {
   if (!planet) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', padding: 32 }}>
-        <p style={{ textAlign: 'center', fontSize: 13, color: '#475569' }}>Select a planet to view details</p>
+        <p style={{ textAlign: 'center', fontSize: 13, color: 'rgba(255,255,255,0.3)' }}>Select a planet to view details</p>
       </div>
     )
   }
 
   const score = planet.habitability_score
-  const scoreColor = score >= 70 ? '#4ade80' : score >= 40 ? '#facc15' : score >= 20 ? '#fb923c' : '#ef4444'
   const circumference = 2 * Math.PI * 40
   const offset = circumference - (score / 100) * circumference
 
   return (
-    <div style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 20, fontSize: 12 }}>
+    <div style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 20, fontSize: 12, background: 'transparent' }}>
       {/* Header */}
       <div>
         <h2 style={{ fontSize: 18, fontWeight: 700, color: '#fff' }}>{planet.pl_name}</h2>
-        <p style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>
+        <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', marginTop: 2 }}>
           {typeLabels[planet.planet_type]} · {planet.hostname}
         </p>
       </div>
@@ -36,12 +36,12 @@ export function PlanetHUD() {
       {/* Score gauge */}
       <div style={{ display: 'flex', justifyContent: 'center' }}>
         <svg width="100" height="100" viewBox="0 0 100 100">
-          <circle cx="50" cy="50" r="40" fill="none" stroke="#1e293b" strokeWidth="5" />
-          <circle cx="50" cy="50" r="40" fill="none" stroke={scoreColor} strokeWidth="5"
+          <circle cx="50" cy="50" r="40" fill="none" stroke="#1a1a1a" strokeWidth="5" />
+          <circle cx="50" cy="50" r="40" fill="none" stroke={getScoreColor(score)} strokeWidth="5"
             strokeDasharray={circumference} strokeDashoffset={offset}
             strokeLinecap="round" transform="rotate(-90 50 50)" />
-          <text x="50" y="46" textAnchor="middle" fill="#fff" fontSize="18" fontWeight="700">{score.toFixed(1)}</text>
-          <text x="50" y="62" textAnchor="middle" fill="#64748b" fontSize="9">Habitability</text>
+          <text x="50" y="46" textAnchor="middle" fill={getScoreColor(score)} fontSize="18" fontWeight="700" fontFamily="'JetBrains Mono', monospace">{score.toFixed(1)}</text>
+          <text x="50" y="62" textAnchor="middle" fill="rgba(255,255,255,0.3)" fontSize="9">Habitability</text>
         </svg>
       </div>
 
@@ -82,9 +82,9 @@ export function PlanetHUD() {
 
       {planet.in_habitable_zone && (
         <div style={{
-          padding: '8px 12px', borderRadius: 8, textAlign: 'center',
-          backgroundColor: 'rgba(34, 197, 94, 0.12)', color: '#4ade80',
-          fontSize: 12, fontWeight: 600, border: '1px solid rgba(34, 197, 94, 0.2)',
+          padding: '8px 12px', borderRadius: 20, textAlign: 'center',
+          backgroundColor: ACCENT_15, color: ACCENT,
+          fontSize: 12, fontWeight: 600,
         }}>
           In Habitable Zone
         </div>
@@ -98,7 +98,7 @@ function StatSection({ title, children }: { title: string; children: React.React
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
       <h3 style={{
         fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1.2,
-        color: '#475569', paddingBottom: 6, borderBottom: '1px solid #1e293b',
+        color: 'rgba(255,255,255,0.3)', paddingBottom: 6, borderBottom: '1px solid rgba(255,255,255,0.06)',
       }}>
         {title}
       </h3>
@@ -110,8 +110,8 @@ function StatSection({ title, children }: { title: string; children: React.React
 function StatRow({ label, value }: { label: string; value: string }) {
   return (
     <div style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0' }}>
-      <span style={{ color: '#64748b' }}>{label}</span>
-      <span style={{ color: '#e2e8f0', fontWeight: 500 }}>{value}</span>
+      <span style={{ color: 'rgba(255,255,255,0.3)' }}>{label}</span>
+      <span style={{ color: 'rgba(255,255,255,0.7)', fontWeight: 500 }}>{value}</span>
     </div>
   )
 }

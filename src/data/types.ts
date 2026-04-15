@@ -64,6 +64,7 @@ export interface FilterState {
   planetTypes: string[]
   habitableZoneOnly: boolean
   minHabitabilityScore: number
+  discoveryMethods: string[]
   searchQuery: string
   sortBy: 'habitability_score' | 'pl_eqt' | 'pl_rade' | 'pl_masse' | 'disc_year' | 'pl_name'
   sortOrder: 'asc' | 'desc'
