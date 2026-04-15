@@ -13,7 +13,7 @@ export function planetNameToSeed(name: string): number {
 // Estimate water ratio from planet data
 export function estimateWaterRatio(
   eqt: number | null,
-  insol: number | null,
+  _insol: number | null,
   inHZ: boolean,
   seed: number,
 ): number {

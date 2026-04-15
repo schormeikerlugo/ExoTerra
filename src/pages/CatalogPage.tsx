@@ -1,5 +1,4 @@
 import { useState, useMemo } from 'react'
-import { Link } from 'react-router-dom'
 import { Search, Filter, ArrowUpDown, CircleDot } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { PlanetCard } from '../components/Controls/PlanetCard'

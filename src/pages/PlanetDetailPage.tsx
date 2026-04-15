@@ -1,6 +1,6 @@
-import { useParams, Link, useNavigate } from 'react-router-dom'
+import { useParams, Link } from 'react-router-dom'
 import { useMemo, useEffect } from 'react'
-import { ArrowLeft, Droplets, Cloud, Orbit, Moon, Scale } from 'lucide-react'
+import { Droplets, Cloud, Orbit, Moon, Scale } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { generatePlanetDescription, getCompositionDetails, getEarthComparison } from '../utils/planetDescriptions'
 import { findSimilarPlanets } from '../utils/similarity'
@@ -24,7 +24,6 @@ const compositionIcons: Record<string, React.ReactNode> = {
 
 export function PlanetDetailPage() {
   const { name } = useParams<{ name: string }>()
-  const navigate = useNavigate()
   const planets = useStore((s) => s.planets)
   const setSelectedPlanet = useStore((s) => s.setSelectedPlanet)
 

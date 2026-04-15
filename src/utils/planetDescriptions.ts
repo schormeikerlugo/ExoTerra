@@ -87,7 +87,7 @@ function getMassComparison(masse: number): string {
   return `At ${masse.toFixed(0)} Earth masses (${(masse / 317.8).toFixed(2)} Jupiter masses), its immense gravity shapes everything around it, from its thick atmosphere to any moons caught in its orbit.`
 }
 
-function getTemperatureDescription(eqt: number, type: string): string {
+function getTemperatureDescription(eqt: number, _type: string): string {
   const celsius = eqt - 273.15
   if (eqt > 2000) return `Its equilibrium temperature reaches an extreme ${eqt.toFixed(0)} K (${celsius.toFixed(0)} °C), hot enough to vaporize most metals. The atmosphere, if present, would glow with thermal radiation.`
   if (eqt > 1000) return `Surface temperatures reach approximately ${eqt.toFixed(0)} K (${celsius.toFixed(0)} °C), far too hot for liquid water. At these temperatures, the surface or upper atmosphere would radiate visibly in the infrared.`
