@@ -8,12 +8,33 @@ El proyecto ExoTerra no solo busca ser un catálogo visual, sino también un mot
 - **Simulación Realista y Dinámica:** Profundizar los shaders GLSL personalizados (`planet.frag.glsl`) y los efectos de post-procesado para dar vida a la geología, anillos, múltiples lunas, meteorología exoplanetaria dependientes de la insolación estelar, excentricidad, temperatura o composición química.
 - **Predicción de Habitabilidad y Clasificación:** Expandir el algoritmo PL/pgSQL procedural corriendo en la base de datos (Supabase). Éste calcula el `habitability_score` ponderando radio, masa, insolación y temperatura de equilibrio; infiriendo a su vez detalles científicos para visualizar mundos rocosos de lava, gigantes de hielo espectaculares y súper-tierras con océanos globales.
 
-## 💻 Arquitectura y Stack Tecnológico
-La magia de ExoTerra viene impulsada por tecnologías modernas enfocadas en un rendimiento excepcional y procesamiento dinámico:
-- **Frontend 3D Inmersivo:** React 19, TypeScript y Vite proporcionan la estructura de rápida iteración. `React Three Fiber` junto con `Drei` otorgan el contexto 3D interactivo, y *Three.js* ejecuta el modelado volumétrico nativo bajo webGL.
-- **Estilos e Interfaz Modular:** Estilizado mediante `TailwindCSS v4` para construir una UI astronómica "glassmorphic", minimalista y libre de fricción. El estado local y global se maneja agílmente utilizando `Zustand`. Integración de navegación ininterrumpida con `React Router v7`.
-- **Backend y Motor Computacional:** Un backend Serverless propulsado por `Supabase` y PostgreSQL aloja miles de registros purificados que nacen del `nasa_data.csv`.
-- **Data Ingestion Procedural:** Scripts en Python (`import_data.py`, `import_sql.py`) procesan masivamente y auto-sincronizan la digestión, enviando lotes eficientes hacia Supabase. Triggers en base de datos (`supabase_schema.sql`) logran calcular en inserción atributos visuales asombrosos sobre cómo debe pintar la UI el exoplaneta (densidad de nubes, color de la atmósfera, número de lunas posibles, formaciones de anillos).
+## 🛠️ Tecnologías Usadas para Generar el Sitio Web
+La magia de ExoTerra y su proceso de auto-generación visual e interfaces han sido generados y soportados utilizando el siguiente stack tecnológico moderno:
+
+- **Frontend y Arquitectura Base:** React 19, TypeScript y [Vite](https://vitejs.dev/) garantizando empaquetado y HMR ultra rápidos.
+- **Renderizado 3D y Shaders:** [Three.js](https://threejs.org/) impulsado por `react-three-fiber` y `@react-three/drei` para el contexto 3D interactivo en WebGL, acompañado de Custom Shaders GLSL (`planet.frag.glsl`, `atmosphere...`) para procesar el render procedimental a bajo nivel.
+- **Estilación y UI:** `TailwindCSS v4` para construir rápidamente los componentes astronómicos "glassmorphic" limpios. `Zustand` se utiliza para la gerencia liviana del estado local.
+- **Base de Datos y Procedimientos (Backend):** [Supabase](https://supabase.io/) con PostgreSQL. En lugar de calcular cada gráfico localmente, potentes Triggers PL/pgSQL nativos generan matemáticamente un `habitability_score`, infieren colores de las atmósferas y densidades al momento de la inserción de datos.
+- **Algoritmia e Ingesta:** Scripts diseñados en `Python` extraen, procesan y limpian la big-data astronómica pura desde los archivos CSV originales de la NASA.
+
+## 📸 Galería del Proyecto
+
+Aquí puedes dar un vistazo a cómo hemos enlazado los datos procedimentales para generar el universo de ExoTerra:
+
+| Inicio / Home | Catálogo de Exoplanetas |
+|:---:|:---:|
+| ![Home](public/git/01Home.jpeg) | ![Catálogo](public/git/02Catalog.jpeg) |
+
+| Descripción y Atributos | Explorador Inmersivo 3D |
+|:---:|:---:|
+| ![Descripción](public/git/03Description_planet.jpeg) | ![Explorador](public/git/04Explorer.jpeg) |
+
+<br>
+<div align="center">
+  <b>Línea de Tiempo (Timeline)</b><br>
+  <img src="public/git/05Timeline.jpeg" alt="Timeline" width="80%">
+</div>
+<br>
 
 ## ⚙️ Características Actuales
 - 🌍 **Renderizado Procedural 3D Complejo**: Auto-generación de superficies (e.g. roca helada, agua habitable, gas joviano incandescente).
