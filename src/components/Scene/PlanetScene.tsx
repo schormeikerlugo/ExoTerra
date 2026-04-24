@@ -43,8 +43,8 @@ export function PlanetScene(props: PlanetSceneProps) {
         <Suspense fallback={null}>
           {selectedPlanet && (
             solarBody
-              ? <SolarPlanet body={solarBody} />
-              : <Planet planet={selectedPlanet} />
+              ? <SolarPlanet key={solarBody.name} body={solarBody} />
+              : <Planet key={selectedPlanet.pl_name} planet={selectedPlanet} />
           )}
         </Suspense>
 

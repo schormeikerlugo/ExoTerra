@@ -3,6 +3,7 @@ import { supabase } from '../data/supabase'
 import { useStore } from '../store/useStore'
 import type { Exoplanet } from '../data/types'
 import { solarSystemBodies } from '../data/solarSystem'
+import { loadCache, saveCache, isCacheValid } from '../utils/planetsCache'
 
 // Convert solar system bodies to Exoplanet format
 function getSolarSystemPlanets(): Exoplanet[] {
@@ -50,39 +51,77 @@ function getSolarSystemPlanets(): Exoplanet[] {
   }))
 }
 
+async function getCurrentDbState(): Promise<{ count: number; lastUpdated: string | null } | null> {
+  // Fetch count + latest last_updated in parallel
+  const [countRes, latestRes] = await Promise.all([
+    supabase.from('exoplanets').select('*', { count: 'exact', head: true }),
+    supabase.from('exoplanets').select('last_updated').order('last_updated', { ascending: false }).limit(1).maybeSingle(),
+  ])
+
+  if (countRes.error || latestRes.error) return null
+  return {
+    count: countRes.count ?? 0,
+    lastUpdated: (latestRes.data as { last_updated: string | null } | null)?.last_updated ?? null,
+  }
+}
+
+async function fetchAllPlanets(): Promise<Exoplanet[] | null> {
+  const allPlanets: Exoplanet[] = []
+  const pageSize = 1000
+  let from = 0
+  let hasMore = true
+
+  while (hasMore) {
+    const { data, error } = await supabase
+      .from('exoplanets')
+      .select('*')
+      .order('habitability_score', { ascending: false })
+      .range(from, from + pageSize - 1)
+
+    if (error) return null
+    if (data) allPlanets.push(...data)
+    hasMore = (data?.length ?? 0) === pageSize
+    from += pageSize
+  }
+  return allPlanets
+}
+
 export function useExoplanets() {
   const setPlanets = useStore((s) => s.setPlanets)
   const setError = useStore((s) => s.setError)
 
   useEffect(() => {
-    async function fetchPlanets() {
-      const allPlanets: Exoplanet[] = []
-      const pageSize = 1000
-      let from = 0
-      let hasMore = true
+    async function load() {
+      const solarPlanets = getSolarSystemPlanets()
+      const cached = loadCache()
 
-      while (hasMore) {
-        const { data, error } = await supabase
-          .from('exoplanets')
-          .select('*')
-          .order('habitability_score', { ascending: false })
-          .range(from, from + pageSize - 1)
-
-        if (error) {
-          setError(error.message)
-          return
-        }
-
-        if (data) allPlanets.push(...data)
-        hasMore = (data?.length ?? 0) === pageSize
-        from += pageSize
+      // Fase 1: Si hay cache, mostrar inmediatamente (pintura optimista)
+      if (cached) {
+        setPlanets([...solarPlanets, ...cached.planets])
       }
 
-      // Add solar system bodies at the beginning
-      const solarPlanets = getSolarSystemPlanets()
-      setPlanets([...solarPlanets, ...allPlanets])
+      // Fase 2: Validar contra la DB
+      const current = await getCurrentDbState()
+      if (!current) {
+        // Fallo al conectar. Si teníamos cache, lo dejamos; si no, error.
+        if (!cached) setError('No se pudo conectar a la base de datos')
+        return
+      }
+
+      // Si cache válido, terminamos
+      if (cached && isCacheValid(cached.meta, current)) return
+
+      // Fase 3: Fetch completo y actualizar cache
+      const freshPlanets = await fetchAllPlanets()
+      if (!freshPlanets) {
+        if (!cached) setError('Error al cargar los planetas')
+        return
+      }
+
+      setPlanets([...solarPlanets, ...freshPlanets])
+      saveCache(freshPlanets, { count: current.count, lastUpdated: current.lastUpdated })
     }
 
-    fetchPlanets()
+    load()
   }, [setPlanets, setError])
 }
