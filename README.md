@@ -40,6 +40,7 @@ Aquí puedes dar un vistazo a cómo hemos enlazado los datos procedimentales par
 ## ⚙️ Características Actuales
 - 🌍 **Renderizado Procedural 3D Optimizado**: Auto-generación de superficies con alta fidelidad y optimizaciones de frustum culling y instanced rendering.
 - 📡 **Catálogo Extendido Dinámico con Caché**: Visualización de sistemas estelares con filtrado instantáneo gracias al sistema de persistencia en memoria local.
+- 📟 **Interfaz HUD & Telemetría Pro**: Nuevos componentes de interfaz técnica (Sparklines, Barcodes, CornerBrackets) para una inmersión científica completa.
 - 🔬 **Explorador Único (`ExplorerPage`)**: Detalles termodinámicos (temperatura de equilibrio $K$, luminosidad, metalicidades y edad precalculada de estrellas host).
 - 🧑‍🚀 **Motor RLS y Computación en Supabase**: Las lógicas pesadas para inferencia se mantienen en DB para aligerar la responsividad y seguridad del cliente (Row Level Security activo).
 
