@@ -59,7 +59,7 @@ export function ExplorePage() {
   //   · cameraDistance closer (2.5×size) so the planet looks larger.
   //   · targetOffsetX ratio -0.55 places the planet center near the viewport right edge,
   //     leaving roughly half of its body off-screen.
-  const planetSize3D = useMemo(() => getPlanetScale(planet), [planet])
+  const planetSize3D = useMemo(() => (planet ? getPlanetScale(planet) : 1), [planet])
   const cameraDistance = Math.max(2.0, Math.min(7.0, 2.5 * planetSize3D))
   const targetOffsetX = -0.55 * cameraDistance
 
@@ -628,6 +628,7 @@ function DisplayHeading({ left, italic, right }: {
   left: string
   italic: string
   right?: string
+  width?: string
 }) {
   return (
     <h2 data-reveal="up" style={{
