@@ -1,14 +1,77 @@
 @import "tailwindcss";
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+/* Fonts are loaded via <link> tags in index.html (preconnect + parallel load) */
+
+:root {
+  /* Monochrome HUD palette — white ambient, cyan reserved for CTAs & live LEDs */
+  --bg-void: #05070d;
+  --bg-deep: #0a0e18;
+  --bg-panel: rgba(10, 14, 22, 0.72);
+  --bg-panel-solid: #0a0e18;
+
+  /* Accent — ONLY used for CTAs and pulsing status LEDs */
+  --hud-cyan: #22D3EE;
+  --hud-cyan-soft: #67E8F9;
+  --hud-cyan-glow: rgba(34, 211, 238, 0.22);
+  --hud-cyan-halo: rgba(34, 211, 238, 0.38);
+
+  /* Status — kept for semantic warnings / live state */
+  --hud-amber: #FFB547;
+  --hud-red: #FF5470;
+  --hud-green: #5EEAD4;
+
+  /* Ambient HUD lines & surfaces — white opacities */
+  --hud-line: rgba(255, 255, 255, 0.85);
+  --hud-line-soft: rgba(255, 255, 255, 0.55);
+  --hud-line-dim: rgba(255, 255, 255, 0.25);
+
+  --border-hud: rgba(255, 255, 255, 0.14);
+  --border-hud-strong: rgba(255, 255, 255, 0.38);
+  --border-faint: rgba(255, 255, 255, 0.06);
+
+  --text-primary: #F5F7FA;
+  --text-muted: rgba(245, 247, 250, 0.55);
+  --text-dim: rgba(245, 247, 250, 0.28);
+
+  /* Typography
+   * --font-astra   : Unbounded — heavy display, geometric sharp terminals (hero wordmark)
+   * --font-hero    : Orbitron — section h2 uppercase display
+   * --font-body    : Space Grotesk — paragraphs, subtitles, long copy
+   * --font-display : Outfit — italic accent words inside display headings
+   * --font-mono    : JetBrains Mono — telemetry, timestamps, data */
+  --font-astra: 'Unbounded', 'Orbitron', sans-serif;
+  --font-hero: 'Orbitron', 'Unbounded', sans-serif;
+  --font-body: 'Space Grotesk', 'Outfit', sans-serif;
+  --font-display: 'Outfit', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  /* Layout — XYVON-style wide wrap with thin gutters */
+  --max-w: 1600px;
+  --gutter: clamp(1.2rem, 2.16vw, 1.8rem);
+}
+
+.wrap {
+  width: 100%;
+  max-width: var(--max-w);
+  margin-inline: auto;
+  padding-inline: var(--gutter);
+}
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
+
+html {
+  scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+}
 
 html, body {
   width: 100%;
   min-height: 100%;
-  background-color: #000;
-  color: #ccc;
-  font-family: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
+  background-color: var(--bg-void);
+  color: var(--text-primary);
+  font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
 }
 
@@ -21,10 +84,311 @@ input[type="range"] { cursor: pointer; height: 4px; }
 select, button, a { cursor: pointer; }
 input:focus, select:focus, textarea:focus { outline: none; }
 
-::selection { background: rgba(78, 205, 196, 0.2); color: #fff; }
+::selection { background: rgba(255, 255, 255, 0.2); color: #fff; }
 
+/* ── Animations ── */
 @keyframes spin { to { transform: rotate(360deg); } }
 
+@keyframes hud-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(1.35); }
+}
+
+@keyframes hud-blink {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+
+@keyframes hud-scan {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(100%); }
+}
+
+@keyframes hud-fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes hud-dash-rotate {
+  to { stroke-dashoffset: -32; }
+}
+
+/* ── HUD utility classes ── */
+.hud-telemetry {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: var(--hud-line-soft);
+  line-height: 1.4;
+}
+
+.hud-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  color: var(--text-dim);
+}
+
+.hud-value {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.hud-cursor::after {
+  content: '▊';
+  color: var(--hud-cyan);
+  margin-left: 4px;
+  animation: hud-blink 1s steps(2) infinite;
+}
+
 .planet-card-link:hover {
-  border-color: rgba(255,255,255,0.1) !important;
+  border-color: var(--border-hud-strong) !important;
+}
+
+.hud-cta-primary:hover {
+  background: #fff !important;
+  box-shadow: 0 0 24px var(--hud-cyan-glow);
+}
+
+.hud-cta-secondary:hover {
+  background: var(--hud-cyan-glow) !important;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   Reveal animations — GPU-only (transform + opacity)
+   Driven by useReveal() hook which toggles [data-visible="true"].
+   Use data-reveal="TYPE" and optional style="--d: 120ms" for stagger.
+══════════════════════════════════════════════════════════════ */
+
+[data-reveal] {
+  opacity: 0;
+  transition:
+    transform 900ms cubic-bezier(0.22, 1, 0.36, 1) var(--d, 0ms),
+    opacity 700ms cubic-bezier(0.22, 1, 0.36, 1) var(--d, 0ms),
+    filter 700ms cubic-bezier(0.22, 1, 0.36, 1) var(--d, 0ms);
+  will-change: transform, opacity;
+}
+[data-reveal="up"]     { transform: translate3d(0, 28px, 0); }
+[data-reveal="down"]   { transform: translate3d(0, -20px, 0); }
+[data-reveal="left"]   { transform: translate3d(-32px, 0, 0); }
+[data-reveal="right"]  { transform: translate3d(32px, 0, 0); }
+[data-reveal="fade"]   { /* opacity only */ }
+[data-reveal="scale"]  { transform: scale(0.96); }
+[data-reveal="blur"]   { filter: blur(8px); }
+[data-reveal="clip"]   { clip-path: inset(0 100% 0 0); }
+[data-reveal="draw"]   { stroke-dashoffset: var(--draw-len, 400); }
+[data-reveal="gauge"]  { --fill: 0% !important; }
+
+[data-reveal][data-visible="true"] {
+  opacity: 1;
+  transform: none;
+  filter: none;
+  clip-path: inset(0);
+  stroke-dashoffset: 0;
+  will-change: auto;
+}
+[data-reveal="gauge"][data-visible="true"] {
+  --fill: var(--fill-target, 100%);
+}
+
+/* Reduced motion: instant reveal, no transition */
+@media (prefers-reduced-motion: reduce) {
+  [data-reveal] {
+    opacity: 1 !important;
+    transform: none !important;
+    filter: none !important;
+    clip-path: none !important;
+    transition: none !important;
+  }
+}
+
+/* ── Gauge fill — animates width from 0 → target when parent reveals ── */
+.gauge-fill {
+  width: 0 !important;
+  transition: width 1200ms cubic-bezier(0.22, 1, 0.36, 1) 280ms;
+}
+[data-reveal][data-visible="true"] .gauge-fill {
+  width: var(--fill-target, 0%) !important;
+}
+
+/* Gauge marker (diamond + line) slides from 0 → target position */
+.gauge-marker {
+  left: 0 !important;
+  transition: left 1200ms cubic-bezier(0.22, 1, 0.36, 1) 280ms;
+}
+[data-reveal][data-visible="true"] .gauge-marker {
+  left: var(--marker-pos, 0%) !important;
+}
+
+/* ── Sparkline stroke draw ── */
+.sparkline-path {
+  stroke-dasharray: 300;
+  stroke-dashoffset: 300;
+  transition: stroke-dashoffset 1500ms cubic-bezier(0.22, 1, 0.36, 1) 300ms;
+}
+.sparkline-fill {
+  opacity: 0;
+  transition: opacity 700ms ease 900ms;
+}
+[data-reveal][data-visible="true"] .sparkline-path {
+  stroke-dashoffset: 0;
+}
+[data-reveal][data-visible="true"] .sparkline-fill {
+  opacity: var(--fill-opacity, 0.06);
+}
+
+/* ── Scale segment bars (sec 4) — horizontal grow on reveal ── */
+.scale-segment {
+  transform-origin: left center;
+  transform: scaleX(0);
+  transition: transform 900ms cubic-bezier(0.22, 1, 0.36, 1) var(--d, 0ms);
+}
+[data-reveal][data-visible="true"] .scale-segment {
+  transform: scaleX(1);
+}
+
+/* ── Circular score arc (sec 6) — draws on reveal ── */
+.score-arc {
+  stroke-dashoffset: var(--arc-dash, 100);
+  transition: stroke-dashoffset 1400ms cubic-bezier(0.22, 1, 0.36, 1) 400ms;
+}
+[data-reveal][data-visible="true"] .score-arc {
+  stroke-dashoffset: 0 !important;
+}
+
+/* Stagger utilities */
+[data-reveal][data-d="1"] { --d: 60ms;  }
+[data-reveal][data-d="2"] { --d: 120ms; }
+[data-reveal][data-d="3"] { --d: 180ms; }
+[data-reveal][data-d="4"] { --d: 240ms; }
+[data-reveal][data-d="5"] { --d: 300ms; }
+[data-reveal][data-d="6"] { --d: 360ms; }
+[data-reveal][data-d="7"] { --d: 420ms; }
+[data-reveal][data-d="8"] { --d: 480ms; }
+
+/* ── Mission Sequence timeline node — continuous concentric pulse ── */
+@keyframes timeline-diamond-pulse {
+  0%, 100% {
+    transform: translate(-50%, -50%) rotate(45deg) scale(1);
+    box-shadow: 0 0 10px rgba(255, 255, 255, 0.06);
+  }
+  50% {
+    transform: translate(-50%, -50%) rotate(45deg) scale(1.12);
+    box-shadow: 0 0 22px rgba(255, 255, 255, 0.18);
+  }
+}
+
+@keyframes timeline-halo-spin {
+  to { transform: rotate(360deg); }
+}
+
+.timeline-diamond {
+  animation: timeline-diamond-pulse 3.2s ease-in-out infinite;
+  will-change: transform, box-shadow;
+}
+
+.timeline-halo {
+  animation: timeline-halo-spin 16s linear infinite;
+  will-change: transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .timeline-diamond { animation: none; transform: translate(-50%, -50%) rotate(45deg); }
+  .timeline-halo { animation: none; }
+}
+
+/* ── Rotating dashed border (conic sweep) ── */
+@property --march-angle {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+
+@keyframes march-sweep {
+  to { --march-angle: 360deg; }
+}
+
+.hud-card__march {
+  position: absolute;
+  inset: -1px;
+  padding: 1px;
+  border-radius: inherit;
+  background: conic-gradient(
+    from var(--march-angle),
+    transparent 0deg,
+    transparent 200deg,
+    var(--hud-line) 280deg,
+    transparent 340deg
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0;
+  transition: opacity 250ms ease;
+  pointer-events: none;
+}
+
+.hud-card:hover .hud-card__march {
+  opacity: 1;
+  animation: march-sweep 3.2s linear infinite;
+}
+
+/* ── Card scan-line hover ── */
+@keyframes hud-card-scan {
+  0%   { transform: translateY(-2px); opacity: 0; }
+  15%  { opacity: 0.9; }
+  85%  { opacity: 0.9; }
+  100% { transform: translateY(100%); opacity: 0; }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   Glassmorphic surface — shared by .hud-card and .hud-glass
+══════════════════════════════════════════════════════════════ */
+.hud-card,
+.hud-glass {
+  position: relative;
+  background: rgba(255, 255, 255, 0.028);
+  backdrop-filter: blur(16px) saturate(1.1);
+  -webkit-backdrop-filter: blur(16px) saturate(1.1);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.015);
+}
+
+.hud-card {
+  overflow: hidden;
+  transition:
+    border-color 260ms ease,
+    background 260ms ease,
+    box-shadow 260ms ease,
+    transform 260ms ease;
+}
+
+.hud-card:hover {
+  border-color: var(--hud-cyan-halo);
+  background: rgba(34, 211, 238, 0.035);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.09),
+    inset 0 0 0 1px rgba(34, 211, 238, 0.12),
+    0 14px 40px rgba(0, 0, 0, 0.42),
+    0 0 32px rgba(34, 211, 238, 0.10);
+}
+
+.hud-card::after {
+  content: '';
+  position: absolute;
+  left: 0; right: 0; top: 0;
+  height: 1px;
+  background: linear-gradient(to right, transparent, var(--hud-line) 50%, transparent);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.hud-card:hover::after {
+  animation: hud-card-scan 1.6s ease-in-out;
 }

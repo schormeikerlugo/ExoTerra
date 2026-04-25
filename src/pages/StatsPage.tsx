@@ -492,7 +492,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 function ExtremeCard({ label, planet, value }: { label: string; planet: string; value: string }) {
   return (
     <Link
-      to={`/planet/${encodeURIComponent(planet)}`}
+      to={`/explore/${encodeURIComponent(planet)}`}
       style={{ textDecoration: 'none' }}
     >
       <div

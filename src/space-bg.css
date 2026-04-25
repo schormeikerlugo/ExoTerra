@@ -36,7 +36,7 @@
     radial-gradient(1px 1px at 500px 500px, rgba(255,255,255,0.22), transparent),
     radial-gradient(1px 1px at 250px 350px, rgba(255,255,255,0.15), transparent);
   background-size: 700px 600px;
-  animation: starsMove 120s linear infinite;
+  /* starsMove animation removed — stars should stay static unless user interacts */
 }
 
 .space-bg .stars2 {
@@ -48,7 +48,7 @@
     radial-gradient(1px 1px at 650px 250px, rgba(255,255,255,0.18), transparent),
     radial-gradient(1px 1px at 120px 450px, rgba(255,255,255,0.15), transparent);
   background-size: 800px 700px;
-  animation: starsMove 180s linear infinite;
+  /* starsMove removed — static stars */
 }
 
 .space-bg .stars3 {
@@ -58,7 +58,7 @@
     radial-gradient(1.5px 1.5px at 250px 450px, rgba(255,255,255,0.14), transparent),
     radial-gradient(1.5px 1.5px at 550px 100px, rgba(255,255,255,0.1), transparent);
   background-size: 900px 800px;
-  animation: starsMove 240s linear infinite;
+  /* starsMove removed — static stars */
 }
 
 @keyframes starsMove {
@@ -95,3 +95,40 @@
 .space-bg .shooting-star:nth-child(7) { left: 25%; animation-delay: 4s; }
 .space-bg .shooting-star:nth-child(8) { left: 85%; animation-delay: 7s; }
 .space-bg .shooting-star:nth-child(9) { left: 40%; animation-delay: 9.5s; }
+
+/* ── Nebula: 3 very soft tinted radial blooms, drifting slowly ── */
+.space-bg .nebula {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 55% 38% at 18% 28%, rgba(125, 211, 252, 0.045), transparent 65%),
+    radial-gradient(ellipse 48% 52% at 82% 72%, rgba(255, 181, 71, 0.025), transparent 65%),
+    radial-gradient(ellipse 70% 42% at 50% 95%, rgba(145, 125, 220, 0.035), transparent 65%);
+  mix-blend-mode: screen;
+  animation: nebula-drift 60s ease-in-out infinite alternate;
+  will-change: transform;
+}
+
+@keyframes nebula-drift {
+  from { transform: translate3d(0, 0, 0) scale(1); }
+  to   { transform: translate3d(-2%, 1.5%, 0) scale(1.04); }
+}
+
+/* ── CRT scanlines overlay, very subtle (2% opacity) ── */
+.space-bg .scanlines {
+  position: absolute;
+  inset: 0;
+  background-image: repeating-linear-gradient(
+    to bottom,
+    transparent 0,
+    transparent 2px,
+    rgba(255, 255, 255, 0.02) 2px,
+    rgba(255, 255, 255, 0.02) 3px
+  );
+  pointer-events: none;
+  mix-blend-mode: overlay;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .space-bg .nebula { animation: none; }
+}

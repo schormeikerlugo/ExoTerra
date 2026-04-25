@@ -240,7 +240,7 @@ export function TimelinePage() {
                     {data.top3.map((p) => (
                       <Link
                         key={p.id}
-                        to={`/planet/${encodeURIComponent(p.pl_name)}`}
+                        to={`/explore/${encodeURIComponent(p.pl_name)}`}
                         style={{ textDecoration: 'none', flex: '1 1 260px', maxWidth: 380 }}
                       >
                         <div

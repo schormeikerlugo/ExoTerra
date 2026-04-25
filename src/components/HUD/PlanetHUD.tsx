@@ -1,11 +1,18 @@
 import { useStore } from '../../store/useStore'
 import { formatNumber, formatTemperature } from '../../utils/planetVisuals'
-import { getScoreColor, ACCENT, ACCENT_15 } from '../../constants/colors'
+import { Barcode } from './Barcode'
 
-const typeLabels: Record<string, string> = {
-  rocky: 'Rocky', super_earth: 'Super Earth', gas_giant: 'Gas Giant',
-  hot_jupiter: 'Hot Jupiter', ice_giant: 'Ice Giant', mini_neptune: 'Mini Neptune',
-  lava_world: 'Lava World', frozen_rocky: 'Frozen Rocky', unknown: 'Unknown',
+const TYPE_LABEL: Record<string, string> = {
+  rocky: 'Rocky',
+  super_earth: 'Super Earth',
+  gas_giant: 'Gas Giant',
+  hot_jupiter: 'Hot Jupiter',
+  ice_giant: 'Ice Giant',
+  mini_neptune: 'Mini Neptune',
+  lava_world: 'Lava World',
+  frozen_rocky: 'Frozen Rocky',
+  water: 'Water',
+  unknown: 'Unknown',
 }
 
 export function PlanetHUD() {
@@ -13,105 +20,239 @@ export function PlanetHUD() {
 
   if (!planet) {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', padding: 32 }}>
-        <p style={{ textAlign: 'center', fontSize: 13, color: 'rgba(255,255,255,0.3)' }}>Select a planet to view details</p>
+      <div style={{
+        display: 'flex', flexDirection: 'column',
+        alignItems: 'center', justifyContent: 'center',
+        height: '100%', padding: 32, gap: 16,
+      }}>
+        <div style={{
+          width: 48, height: 48,
+          border: '1px dashed var(--border-hud)',
+          borderRadius: '50%',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <div style={{
+            width: 6, height: 6,
+            background: 'var(--border-hud-strong)',
+          }} />
+        </div>
+        <p style={{
+          textAlign: 'center',
+          fontFamily: 'var(--font-mono)', fontSize: 11,
+          color: 'var(--text-muted)', letterSpacing: 1.5, textTransform: 'uppercase',
+        }}>
+          Select a target<br />from the list
+        </p>
       </div>
     )
   }
 
   const score = planet.habitability_score
-  const circumference = 2 * Math.PI * 40
-  const offset = circumference - (score / 100) * circumference
+  const R = 38
+  const C = 2 * Math.PI * R
+  const dash = (score / 100) * C
 
   return (
-    <div style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 20, fontSize: 12, background: 'transparent' }}>
-      {/* Header */}
-      <div>
-        <h2 style={{ fontSize: 18, fontWeight: 700, color: '#fff' }}>{planet.pl_name}</h2>
-        <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', marginTop: 2 }}>
-          {typeLabels[planet.planet_type]} · {planet.hostname}
-        </p>
-      </div>
-
-      {/* Score gauge */}
-      <div style={{ display: 'flex', justifyContent: 'center' }}>
-        <svg width="100" height="100" viewBox="0 0 100 100">
-          <circle cx="50" cy="50" r="40" fill="none" stroke="#1a1a1a" strokeWidth="5" />
-          <circle cx="50" cy="50" r="40" fill="none" stroke={getScoreColor(score)} strokeWidth="5"
-            strokeDasharray={circumference} strokeDashoffset={offset}
-            strokeLinecap="round" transform="rotate(-90 50 50)" />
-          <text x="50" y="46" textAnchor="middle" fill={getScoreColor(score)} fontSize="18" fontWeight="700" fontFamily="'JetBrains Mono', monospace">{score.toFixed(1)}</text>
-          <text x="50" y="62" textAnchor="middle" fill="rgba(255,255,255,0.3)" fontSize="9">Habitability</text>
-        </svg>
-      </div>
-
-      <StatSection title="Physical Properties">
-        <StatRow label="Temperature" value={formatTemperature(planet.pl_eqt)} />
-        <StatRow label="Radius" value={`${formatNumber(planet.pl_rade)} R⊕`} />
-        <StatRow label="Mass" value={`${formatNumber(planet.pl_masse)} M⊕`} />
-        <StatRow label="Density" value={`${formatNumber(planet.pl_dens)} g/cm³`} />
-        <StatRow label="Insolation" value={`${formatNumber(planet.pl_insol)} S⊕`} />
-      </StatSection>
-
-      <StatSection title="Orbital Parameters">
-        <StatRow label="Period" value={`${formatNumber(planet.pl_orbper)} days`} />
-        <StatRow label="Semi-major axis" value={`${formatNumber(planet.pl_orbsmax)} AU`} />
-        <StatRow label="Eccentricity" value={formatNumber(planet.pl_orbeccen, 4)} />
-      </StatSection>
-
-      <StatSection title="Host Star">
-        <StatRow label="Type" value={planet.st_spectype ?? '—'} />
-        <StatRow label="Temperature" value={planet.st_teff ? `${planet.st_teff.toFixed(0)} K` : '—'} />
-        <StatRow label="Mass" value={`${formatNumber(planet.st_mass)} M☉`} />
-        <StatRow label="Age" value={planet.st_age ? `${planet.st_age.toFixed(1)} Gyr` : '—'} />
-      </StatSection>
-
-      <StatSection title="Discovery">
-        <StatRow label="Method" value={planet.discoverymethod ?? '—'} />
-        <StatRow label="Year" value={planet.disc_year?.toString() ?? '—'} />
-        <StatRow label="Facility" value={planet.disc_facility ?? '—'} />
-        <StatRow label="Distance" value={planet.sy_dist ? `${planet.sy_dist.toFixed(1)} pc` : '—'} />
-      </StatSection>
-
-      <StatSection title="Visual Properties">
-        <StatRow label="Surface" value={planet.visual_surface_type} />
-        <StatRow label="Atmosphere" value={planet.has_atmosphere_likely ? 'Likely' : 'Unlikely'} />
-        <StatRow label="Rings" value={planet.visual_has_rings ? 'Yes' : 'No'} />
-        <StatRow label="Moons" value={planet.visual_num_moons.toString()} />
-      </StatSection>
-
-      {planet.in_habitable_zone && (
-        <div style={{
-          padding: '8px 12px', borderRadius: 20, textAlign: 'center',
-          backgroundColor: ACCENT_15, color: ACCENT,
-          fontSize: 12, fontWeight: 600,
-        }}>
-          In Habitable Zone
-        </div>
-      )}
-    </div>
-  )
-}
-
-function StatSection({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-      <h3 style={{
-        fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1.2,
-        color: 'rgba(255,255,255,0.3)', paddingBottom: 6, borderBottom: '1px solid rgba(255,255,255,0.06)',
+    <div style={{ display: 'flex', flexDirection: 'column' }}>
+      {/* ── Header ── */}
+      <div style={{
+        padding: '14px 16px',
+        borderBottom: '1px solid var(--border-hud)',
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
       }}>
-        {title}
-      </h3>
-      {children}
+        <span style={{
+          fontFamily: 'var(--font-mono)', fontSize: 10,
+          color: 'var(--text-primary)', letterSpacing: 2, textTransform: 'uppercase',
+        }}>
+          // TARGET
+        </span>
+        <Barcode seed={`hud-${planet.pl_name}`} bars={22} height={10} />
+      </div>
+
+      {/* ── Name block ── */}
+      <div style={{ padding: '18px 18px 14px' }}>
+        <h2 style={{
+          fontFamily: 'var(--font-hero)', fontSize: 20, fontWeight: 500,
+          color: 'var(--text-primary)', letterSpacing: '0.04em',
+          textTransform: 'uppercase',
+          margin: 0, lineHeight: 1.1,
+          wordBreak: 'break-word',
+        }}>
+          {planet.pl_name}
+        </h2>
+        <div style={{
+          display: 'flex', gap: 10, marginTop: 8,
+          fontFamily: 'var(--font-mono)', fontSize: 10,
+          color: 'var(--text-muted)', letterSpacing: 1,
+          textTransform: 'uppercase',
+          flexWrap: 'wrap',
+        }}>
+          <span>{TYPE_LABEL[planet.planet_type] ?? 'Unknown'}</span>
+          <span style={{ color: 'var(--text-dim)' }}>·</span>
+          <span>HOST · {planet.hostname}</span>
+        </div>
+        {planet.in_habitable_zone && (
+          <div style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6,
+            marginTop: 10, padding: '3px 8px',
+            border: '1px solid var(--border-hud-strong)',
+            fontFamily: 'var(--font-mono)', fontSize: 9,
+            color: 'var(--text-primary)', letterSpacing: 1.5,
+          }}>
+            <span style={{
+              width: 5, height: 5,
+              background: 'var(--hud-cyan)',
+              boxShadow: '0 0 5px var(--hud-cyan)',
+            }} />
+            HZ · CONFIRMED
+          </div>
+        )}
+      </div>
+
+      {/* ── Score gauge ── */}
+      <div style={{
+        padding: '14px 18px',
+        borderTop: '1px dashed var(--border-hud)',
+        borderBottom: '1px dashed var(--border-hud)',
+        display: 'flex', alignItems: 'center', gap: 16,
+      }}>
+        <svg width={90} height={90} viewBox="-46 -46 92 92" aria-hidden>
+          {Array.from({ length: 36 }).map((_, k) => {
+            const isMajor = k % 9 === 0
+            return (
+              <line key={k}
+                x1="44" y1="0" x2={isMajor ? 40 : 42} y2="0"
+                stroke={isMajor ? 'var(--hud-line)' : 'var(--border-hud)'}
+                strokeWidth={isMajor ? 0.8 : 0.5}
+                transform={`rotate(${k * 10})`}
+              />
+            )
+          })}
+          <circle cx="0" cy="0" r={R} fill="none"
+            stroke="var(--border-hud)" strokeWidth="1.4" />
+          <circle cx="0" cy="0" r={R} fill="none"
+            stroke="var(--text-primary)" strokeWidth="1.4"
+            strokeDasharray={`${dash.toFixed(2)} ${C.toFixed(2)}`}
+            strokeLinecap="round"
+            transform="rotate(-90)"
+          />
+          <text
+            x="0" y="1" textAnchor="middle" dominantBaseline="middle"
+            fill="var(--text-primary)"
+            style={{ fontFamily: 'var(--font-mono)', fontSize: 18, fontWeight: 600 }}
+          >
+            {score.toFixed(0)}
+          </text>
+          <text
+            x="0" y="16" textAnchor="middle"
+            fill="var(--text-dim)"
+            style={{ fontFamily: 'var(--font-mono)', fontSize: 6, letterSpacing: 1 }}
+          >
+            / 100
+          </text>
+        </svg>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{
+            fontFamily: 'var(--font-mono)', fontSize: 9,
+            color: 'var(--text-dim)', letterSpacing: 2, textTransform: 'uppercase',
+          }}>
+            Habitability
+          </div>
+          <div style={{
+            fontFamily: 'var(--font-hero)', fontSize: 14, fontWeight: 500,
+            color: 'var(--text-primary)', letterSpacing: '0.06em',
+            textTransform: 'uppercase', marginTop: 4,
+          }}>
+            {score >= 60 ? 'Earth-like' : score >= 30 ? 'Partial Match' : 'Unlikely'}
+          </div>
+        </div>
+      </div>
+
+      {/* ── Sections ── */}
+      <HudSection title="Physical">
+        <HudRow label="Temperature" value={formatTemperature(planet.pl_eqt)} />
+        <HudRow label="Radius" value={`${formatNumber(planet.pl_rade)} R⊕`} />
+        <HudRow label="Mass" value={`${formatNumber(planet.pl_masse)} M⊕`} />
+        <HudRow label="Density" value={`${formatNumber(planet.pl_dens)} g/cm³`} />
+        <HudRow label="Insolation" value={`${formatNumber(planet.pl_insol)} S⊕`} />
+      </HudSection>
+
+      <HudSection title="Orbital">
+        <HudRow label="Period" value={`${formatNumber(planet.pl_orbper)} days`} />
+        <HudRow label="Semi-major" value={`${formatNumber(planet.pl_orbsmax)} AU`} />
+        <HudRow label="Eccentricity" value={formatNumber(planet.pl_orbeccen, 4)} />
+      </HudSection>
+
+      <HudSection title="Host Star">
+        <HudRow label="Type" value={planet.st_spectype ?? '—'} />
+        <HudRow label="Temperature" value={planet.st_teff ? `${planet.st_teff.toFixed(0)} K` : '—'} />
+        <HudRow label="Mass" value={`${formatNumber(planet.st_mass)} M☉`} />
+        <HudRow label="Age" value={planet.st_age ? `${planet.st_age.toFixed(1)} Gyr` : '—'} />
+      </HudSection>
+
+      <HudSection title="Discovery">
+        <HudRow label="Method" value={planet.discoverymethod ?? '—'} />
+        <HudRow label="Year" value={planet.disc_year?.toString() ?? '—'} />
+        <HudRow label="Facility" value={planet.disc_facility ?? '—'} />
+        <HudRow label="Distance" value={planet.sy_dist ? `${planet.sy_dist.toFixed(1)} pc` : '—'} />
+      </HudSection>
+
+      <HudSection title="Visual" last>
+        <HudRow label="Surface" value={planet.visual_surface_type} />
+        <HudRow label="Atmosphere" value={planet.has_atmosphere_likely ? 'Likely' : 'Unlikely'} />
+        <HudRow label="Rings" value={planet.visual_has_rings ? 'Yes' : 'No'} />
+        <HudRow label="Moons" value={planet.visual_num_moons.toString()} />
+      </HudSection>
     </div>
   )
 }
 
-function StatRow({ label, value }: { label: string; value: string }) {
+function HudSection({ title, children, last }: {
+  title: string
+  children: React.ReactNode
+  last?: boolean
+}) {
   return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0' }}>
-      <span style={{ color: 'rgba(255,255,255,0.3)' }}>{label}</span>
-      <span style={{ color: 'rgba(255,255,255,0.7)', fontWeight: 500 }}>{value}</span>
+    <div style={{
+      padding: '14px 18px',
+      borderBottom: last ? 'none' : '1px dashed var(--border-hud)',
+    }}>
+      <div style={{
+        fontFamily: 'var(--font-mono)', fontSize: 9,
+        color: 'var(--text-dim)', letterSpacing: 2, textTransform: 'uppercase',
+        marginBottom: 10,
+        display: 'flex', alignItems: 'center', gap: 8,
+      }}>
+        <span>// {title}</span>
+        <span style={{ flex: 1, height: 1, background: 'var(--border-hud)' }} />
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+        {children}
+      </div>
+    </div>
+  )
+}
+
+function HudRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div style={{
+      display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8,
+      padding: '2px 0',
+    }}>
+      <span style={{
+        fontFamily: 'var(--font-mono)', fontSize: 10,
+        color: 'var(--text-muted)', letterSpacing: 0.5,
+        textTransform: 'uppercase',
+      }}>
+        {label}
+      </span>
+      <span style={{
+        fontFamily: 'var(--font-mono)', fontSize: 11,
+        color: 'var(--text-primary)', letterSpacing: 0.3,
+        textAlign: 'right',
+      }}>
+        {value}
+      </span>
     </div>
   )
 }

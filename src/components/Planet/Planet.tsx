@@ -1,4 +1,4 @@
-import { useRef, useMemo, useEffect } from 'react'
+import { useRef, useMemo, useEffect, type ReactNode } from 'react'
 import { useFrame, useLoader } from '@react-three/fiber'
 import * as THREE from 'three'
 import type { Exoplanet } from '../../data/types'
@@ -18,9 +18,11 @@ const surfaceTypeMap: Record<string, number> = {
 interface PlanetProps {
   planet: Exoplanet
   onClick?: () => void
+  rotate?: boolean
+  children?: ReactNode
 }
 
-export function Planet({ planet, onClick }: PlanetProps) {
+export function Planet({ planet, onClick, rotate = true, children }: PlanetProps) {
   const meshRef = useRef<THREE.Mesh>(null)
   const matRef = useRef<THREE.ShaderMaterial>(null)
 
@@ -96,7 +98,7 @@ export function Planet({ planet, onClick }: PlanetProps) {
       planet.pl_rade, planet.pl_masse, planet.pl_dens, planet.st_age, uniforms])
 
   useFrame((_, delta) => {
-    if (meshRef.current) {
+    if (meshRef.current && rotate) {
       const rotSpeed = surfaceType === 2 ? 0.15 : 0.08
       meshRef.current.rotation.y += delta * rotSpeed
     }
@@ -114,6 +116,7 @@ export function Planet({ planet, onClick }: PlanetProps) {
           uniforms={uniforms}
           toneMapped={false}
         />
+        {children}
       </mesh>
 
       {/* Atmosphere halo is now integrated in the planet shader */}

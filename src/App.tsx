@@ -1,16 +1,23 @@
 import './space-bg.css'
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useParams } from 'react-router-dom'
 import { useExoplanets } from './hooks/useExoplanets'
 import { useStore } from './store/useStore'
 import { Navbar } from './components/Layout/Navbar'
+import { CompareTray } from './components/HUD/CompareTray'
 import { LandingPage } from './pages/LandingPage'
 import { CatalogPage } from './pages/CatalogPage'
-import { PlanetDetailPage } from './pages/PlanetDetailPage'
+import { ExplorePage } from './pages/ExplorePage'
 import { ExplorerPage } from './pages/ExplorerPage'
 import { StatsPage } from './pages/StatsPage'
 import { TimelinePage } from './pages/TimelinePage'
 import { SystemPage } from './pages/SystemPage'
 import { ComparePage } from './pages/ComparePage'
+
+// Forward old /planet/:name routes to the unified /explore/:name page.
+function PlanetRedirect() {
+  const { name } = useParams<{ name: string }>()
+  return <Navigate to={`/explore/${encodeURIComponent(name ?? '')}`} replace />
+}
 
 export default function App() {
   useExoplanets()
@@ -31,11 +38,13 @@ export default function App() {
         <div className="stars" />
         <div className="stars2" />
         <div className="stars3" />
+        <div className="nebula" />
         <div className="shooting-star" />
         <div className="shooting-star" />
         <div className="shooting-star" />
         <div className="shooting-star" />
         <div className="shooting-star" />
+        <div className="scanlines" />
       </div>
 
       {/* All content sits above the background */}
@@ -44,7 +53,12 @@ export default function App() {
         <Routes>
           <Route path="/" element={<LandingPage />} />
           <Route path="/catalog" element={<CatalogPage />} />
-          <Route path="/planet/:name" element={<PlanetDetailPage />} />
+          {/* Unified planet experience — replaces /planet/:name + ExplorerPage hero. */}
+          <Route path="/explore" element={<ExplorePage />} />
+          <Route path="/explore/:name" element={<ExplorePage />} />
+          {/* Legacy /planet/:name → /explore/:name */}
+          <Route path="/planet/:name" element={<PlanetRedirect />} />
+          {/* Cockpit mode (full-screen 3D explorer, kept as launchable mode) */}
           <Route path="/explorer" element={<ExplorerPage />} />
           <Route path="/explorer/:name" element={<ExplorerPage />} />
           <Route path="/stats" element={<StatsPage />} />
@@ -52,6 +66,9 @@ export default function App() {
           <Route path="/system/:hostname" element={<SystemPage />} />
           <Route path="/compare" element={<ComparePage />} />
         </Routes>
+
+        {/* Floating compare tray — persists across pages */}
+        <CompareTray />
       </div>
     </BrowserRouter>
   )

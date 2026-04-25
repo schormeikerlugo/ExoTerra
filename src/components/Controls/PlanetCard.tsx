@@ -1,132 +1,240 @@
+import type { CSSProperties } from 'react'
 import { Link } from 'react-router-dom'
-import { Mountain, Globe, Wind, Flame, Snowflake, Droplets, HelpCircle } from 'lucide-react'
 import type { Exoplanet } from '../../data/types'
-import type { LucideIcon } from 'lucide-react'
-import { getScoreColor, ACCENT_15, ACCENT, ACCENT_30 } from '../../constants/colors'
+import { getExoplanetTexture } from '../../utils/textureMap'
+import { planetNameToSeed } from '../../utils/planetSeed'
+import { CornerBrackets } from '../HUD/CornerBrackets'
+import { Barcode } from '../HUD/Barcode'
+import { ComparePin } from '../HUD/ComparePin'
 
-const typeConfig: Record<string, { label: string; Icon: LucideIcon }> = {
-  rocky:        { label: 'Rocky',        Icon: Mountain },
-  super_earth:  { label: 'Super Earth',  Icon: Globe },
-  gas_giant:    { label: 'Gas Giant',    Icon: Wind },
-  hot_jupiter:  { label: 'Hot Jupiter',  Icon: Flame },
-  ice_giant:    { label: 'Ice Giant',    Icon: Snowflake },
-  mini_neptune: { label: 'Mini Neptune', Icon: Droplets },
-  lava_world:   { label: 'Lava World',   Icon: Flame },
-  frozen_rocky: { label: 'Frozen',       Icon: Snowflake },
-  unknown:      { label: 'Unknown',      Icon: HelpCircle },
+const TYPE_LABEL: Record<string, string> = {
+  rocky: 'ROCKY',
+  super_earth: 'SUPER EARTH',
+  gas_giant: 'GAS GIANT',
+  hot_jupiter: 'HOT JUPITER',
+  ice_giant: 'ICE GIANT',
+  mini_neptune: 'MINI NEPTUNE',
+  lava_world: 'LAVA WORLD',
+  frozen_rocky: 'FROZEN',
+  water: 'WATER',
+  unknown: 'UNKNOWN',
+}
+
+function orbStyle(planet: Exoplanet): CSSProperties {
+  const texture = getExoplanetTexture(planet)
+  const seed = planetNameToSeed(planet.pl_name)
+  const bgX = Math.floor(seed) % 100
+  return {
+    borderRadius: '50%',
+    backgroundImage: [
+      'radial-gradient(circle at 30% 25%, rgba(255,255,255,0.28) 0%, rgba(255,255,255,0) 32%)',
+      'radial-gradient(circle at 50% 50%, transparent 52%, rgba(0,0,0,0.7) 100%)',
+      `url(${texture})`,
+    ].join(', '),
+    backgroundSize: 'cover, cover, 220% 180%',
+    backgroundPosition: `center, center, ${bgX}% 50%`,
+    backgroundRepeat: 'no-repeat, no-repeat, no-repeat',
+    boxShadow:
+      'inset -8px -14px 30px rgba(0,0,0,0.72), 0 0 24px rgba(255,255,255,0.05)',
+  }
 }
 
 export function PlanetCard({ planet }: { planet: Exoplanet }) {
-  const config = typeConfig[planet.planet_type] ?? typeConfig.unknown
   const score = planet.habitability_score
-  const { Icon } = config
+  const C = 2 * Math.PI * 30
+  const dash = (score / 100) * C
+  const typeLabel = TYPE_LABEL[planet.planet_type] ?? TYPE_LABEL.unknown
 
   return (
     <Link
-      to={`/planet/${encodeURIComponent(planet.pl_name)}`}
-      className="planet-card-link"
+      to={`/explore/${encodeURIComponent(planet.pl_name)}`}
+      className="hud-card"
       style={{
-        display: 'block',
+        position: 'relative',
+        display: 'flex',
+        flexDirection: 'column',
+        border: '1px solid var(--border-hud)',
+        padding: '22px 26px 20px',
         textDecoration: 'none',
         color: 'inherit',
-        backgroundColor: '#0f0f0f',
-        border: '1px solid rgba(255,255,255,0.04)',
-        borderLeft: '2px solid transparent',
-        borderRadius: 16,
-        padding: 20,
-        transition: 'border-color 200ms ease',
       }}
-      onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderLeftColor = ACCENT_30 }}
-      onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderLeftColor = 'transparent' }}
     >
-      {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-        <div style={{ minWidth: 0, flex: 1 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <Icon size={16} style={{ color: 'rgba(255,255,255,0.4)', flexShrink: 0 }} />
-            <h3 style={{
-              fontSize: 15, fontWeight: 600, color: '#fff',
-              whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-            }}>
-              {planet.pl_name}
-            </h3>
-          </div>
-          <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', marginTop: 2 }}>
-            {config.label}
-          </p>
-        </div>
+      <span className="hud-card__march" />
+      <CornerBrackets size={9} inset={-1} color="var(--hud-line)" thickness={1} />
 
-        {/* Score */}
-        <div style={{
-          whiteSpace: 'nowrap',
-          fontFamily: "'JetBrains Mono', monospace",
+      {/* Header: type + HZ badge + compare pin */}
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        gap: 8, marginBottom: 20,
+      }}>
+        <span style={{
+          fontFamily: 'var(--font-mono)', fontSize: 10,
+          color: 'var(--text-dim)', letterSpacing: 2,
         }}>
-          <span style={{ fontSize: 14, fontWeight: 600, color: getScoreColor(score) }}>
-            {score.toFixed(1)}
-          </span>
-          <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', marginLeft: 2 }}>
-            / 100
-          </span>
-        </div>
-      </div>
-
-      {/* Stats */}
-      <div style={{
-        display: 'grid', gridTemplateColumns: '1fr 1fr',
-        gap: '12px 20px', marginTop: 16,
-      }}>
-        <Stat label="Temperature" value={planet.pl_eqt !== null ? `${planet.pl_eqt.toFixed(0)} K` : '--'} />
-        <Stat label="Radius" value={planet.pl_rade !== null ? `${planet.pl_rade.toFixed(2)} R\u2295` : '--'} />
-        <Stat label="Mass" value={planet.pl_masse !== null ? `${planet.pl_masse.toFixed(1)} M\u2295` : '--'} />
-        <Stat label="Distance" value={planet.sy_dist !== null ? `${planet.sy_dist.toFixed(1)} pc` : '--'} />
-      </div>
-
-      {/* Footer */}
-      <div style={{
-        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-        marginTop: 16, paddingTop: 12,
-        borderTop: '1px solid rgba(255,255,255,0.04)',
-        fontSize: 12, color: 'rgba(255,255,255,0.3)',
-      }}>
-        <span>{planet.hostname}</span>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {typeLabel}
+        </span>
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
           {planet.in_habitable_zone && (
             <span style={{
-              padding: '2px 6px', borderRadius: 4, fontSize: 10,
-              backgroundColor: ACCENT_15,
-              color: ACCENT,
-              fontWeight: 600,
-            }}>HZ</span>
-          )}
-          {planet.visual_has_rings && (
-            <span style={{ color: 'rgba(255,255,255,0.3)', fontSize: 10, fontWeight: 600 }}>RINGS</span>
-          )}
-          {planet.visual_num_moons > 0 && (
-            <span style={{ color: 'rgba(255,255,255,0.3)', fontSize: 10 }}>
-              {planet.visual_num_moons}m
+              fontFamily: 'var(--font-mono)', fontSize: 9, fontWeight: 600,
+              padding: '3px 8px',
+              border: '1px solid var(--border-hud-strong)',
+              color: 'var(--text-primary)',
+              letterSpacing: 1.5,
+            }}>
+              HZ · CONFIRMED
             </span>
           )}
-          <span>{planet.disc_year ?? '--'}</span>
+          <ComparePin planet={planet} variant="icon" />
+        </div>
+      </div>
+
+      {/* Body: big orb + name */}
+      <div style={{ display: 'flex', gap: 20, alignItems: 'center', marginBottom: 20 }}>
+        <div style={{ position: 'relative', width: 120, height: 120, flexShrink: 0 }}>
+          <div style={{ position: 'absolute', inset: 8, ...orbStyle(planet) }} />
+          <svg
+            viewBox="-64 -64 128 128"
+            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none' }}
+            aria-hidden
+          >
+            <circle cx="0" cy="0" r="58" fill="none"
+              stroke="var(--border-hud)" strokeWidth="0.5"
+              strokeDasharray="2 3" />
+            {[0, 90, 180, 270].map((a) => (
+              <line key={a}
+                x1="52" y1="0" x2="60" y2="0"
+                stroke="var(--hud-line)" strokeWidth="0.8"
+                transform={`rotate(${a})`}
+              />
+            ))}
+            <circle cx="40" cy="-40" r="1.4" fill="var(--hud-line)" />
+          </svg>
+        </div>
+
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <h3 style={{
+            fontFamily: 'var(--font-hero)', fontSize: 20, fontWeight: 500,
+            letterSpacing: '0.04em', textTransform: 'uppercase',
+            color: 'var(--text-primary)',
+            margin: 0,
+            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            lineHeight: 1.1,
+          }}>
+            {planet.pl_name}
+          </h3>
+          <div style={{
+            fontFamily: 'var(--font-mono)', fontSize: 11,
+            color: 'var(--text-muted)', letterSpacing: 1,
+            marginTop: 6, textTransform: 'uppercase',
+            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+          }}>
+            HOST · {planet.hostname}
+          </div>
+          {planet.disc_year !== null && (
+            <div style={{
+              fontFamily: 'var(--font-mono)', fontSize: 10,
+              color: 'var(--text-dim)', letterSpacing: 1,
+              marginTop: 3,
+            }}>
+              DISC · {planet.disc_year}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Telemetry row — wider layout */}
+      <div style={{
+        display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)',
+        gap: 12,
+        paddingTop: 14,
+        borderTop: '1px dashed var(--border-hud)',
+      }}>
+        {[
+          { label: 'RADIUS', value: planet.pl_rade !== null ? planet.pl_rade.toFixed(2) : '—', unit: 'R⊕' },
+          { label: 'MASS',   value: planet.pl_masse !== null ? planet.pl_masse.toFixed(1) : '—', unit: 'M⊕' },
+          { label: 'TEMP',   value: planet.pl_eqt !== null ? planet.pl_eqt.toFixed(0) : '—', unit: 'K' },
+          { label: 'DIST',   value: planet.sy_dist !== null ? planet.sy_dist.toFixed(1) : '—', unit: 'PC' },
+        ].map((t) => (
+          <div key={t.label} style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+            <span className="hud-label" style={{ fontSize: 9 }}>{t.label}</span>
+            <span style={{
+              fontFamily: 'var(--font-mono)', fontSize: 14,
+              color: 'var(--text-primary)',
+            }}>
+              {t.value}
+              <span style={{ marginLeft: 3, fontSize: 10, color: 'var(--text-dim)' }}>{t.unit}</span>
+            </span>
+          </div>
+        ))}
+      </div>
+
+      {/* Footer: score gauge + label + open badge */}
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 16,
+        marginTop: 18, paddingTop: 16,
+        borderTop: '1px dashed var(--border-hud)',
+      }}>
+        <svg width={70} height={70} viewBox="-36 -36 72 72" aria-hidden>
+          {Array.from({ length: 24 }).map((_, k) => (
+            <line key={k}
+              x1="34" y1="0" x2={k % 6 === 0 ? '30' : '32'} y2="0"
+              stroke="var(--border-hud)" strokeWidth="0.6"
+              transform={`rotate(${k * 15})`}
+            />
+          ))}
+          <circle cx="0" cy="0" r="30" fill="none"
+            stroke="var(--border-hud)" strokeWidth="1.4" />
+          <circle cx="0" cy="0" r="30" fill="none"
+            stroke="var(--text-primary)" strokeWidth="1.4"
+            strokeDasharray={`${dash.toFixed(2)} ${C.toFixed(2)}`}
+            strokeLinecap="round"
+            transform="rotate(-90)"
+          />
+          <text
+            x="0" y="1"
+            textAnchor="middle" dominantBaseline="middle"
+            fill="var(--text-primary)"
+            style={{ fontFamily: 'var(--font-mono)', fontSize: 16, fontWeight: 600 }}
+          >
+            {score.toFixed(0)}
+          </text>
+          <text
+            x="0" y="14"
+            textAnchor="middle"
+            fill="var(--text-dim)"
+            style={{ fontFamily: 'var(--font-mono)', fontSize: 6, letterSpacing: 1 }}
+          >
+            / 100
+          </text>
+        </svg>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{
+            fontFamily: 'var(--font-mono)', fontSize: 10,
+            color: 'var(--text-dim)', letterSpacing: 1.5, textTransform: 'uppercase',
+          }}>
+            Habitability Score
+          </div>
+          <div style={{
+            fontFamily: 'var(--font-hero)', fontSize: 14, fontWeight: 500,
+            color: 'var(--text-primary)', letterSpacing: '0.06em',
+            textTransform: 'uppercase', marginTop: 3,
+          }}>
+            {score >= 60 ? 'Earth-like' : score >= 30 ? 'Partial Match' : 'Unlikely'}
+          </div>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <Barcode seed={`cat-${planet.pl_name}`} bars={20} height={10} />
+          <span style={{
+            fontFamily: 'var(--font-mono)', fontSize: 10,
+            color: 'var(--text-primary)', letterSpacing: 2,
+            padding: '5px 9px',
+            border: '1px solid var(--border-hud-strong)',
+          }}>
+            OPEN →
+          </span>
         </div>
       </div>
     </Link>
-  )
-}
-
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-        {label}
-      </div>
-      <div style={{
-        fontSize: 14, fontWeight: 500,
-        color: 'rgba(255,255,255,0.7)',
-        fontFamily: "'JetBrains Mono', monospace",
-        marginTop: 2,
-      }}>
-        {value}
-      </div>
-    </div>
   )
 }

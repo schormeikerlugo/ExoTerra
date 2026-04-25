@@ -13,8 +13,9 @@ La magia de ExoTerra y su proceso de auto-generación visual e interfaces han si
 
 - **Frontend y Arquitectura Base:** React 19, TypeScript y [Vite](https://vitejs.dev/) garantizando empaquetado y HMR ultra rápidos.
 - **Renderizado 3D y Shaders:** [Three.js](https://threejs.org/) impulsado por `react-three-fiber` y `@react-three/drei` para el contexto 3D interactivo en WebGL, acompañado de Custom Shaders GLSL (`planet.frag.glsl`, `atmosphere...`) para procesar el render procedimental a bajo nivel.
-- **Estilación y UI:** `TailwindCSS v4` para construir rápidamente los componentes astronómicos "glassmorphic" limpios. `Zustand` se utiliza para la gerencia liviana del estado local.
+- **Estilación y UI:** `TailwindCSS v4` para construir rápidamente los componentes astronómicos "glassmorphic" limpios. `Zustand` se utiliza para la gerencia liviana del estado global.
 - **Base de Datos y Procedimientos (Backend):** [Supabase](https://supabase.io/) con PostgreSQL. En lugar de calcular cada gráfico localmente, potentes Triggers PL/pgSQL nativos generan matemáticamente un `habitability_score`, infieren colores de las atmósferas y densidades al momento de la inserción de datos.
+- **Optimización y Cache:** Implementación de un sistema de caché local (`planetsCache.ts`) para minimizar latencias de red y optimizaciones de renderizado en `PlanetScene.tsx` para garantizar 60 FPS estables.
 - **Algoritmia e Ingesta:** Scripts diseñados en `Python` extraen, procesan y limpian la big-data astronómica pura desde los archivos CSV originales de la NASA.
 
 ## 📸 Galería del Proyecto
@@ -37,8 +38,8 @@ Aquí puedes dar un vistazo a cómo hemos enlazado los datos procedimentales par
 <br>
 
 ## ⚙️ Características Actuales
-- 🌍 **Renderizado Procedural 3D Complejo**: Auto-generación de superficies (e.g. roca helada, agua habitable, gas joviano incandescente).
-- 📡 **Catálogo Extendido Dinámico**: Visualización de sistemas estelares con filtrado y control de habitabilidad directo.
+- 🌍 **Renderizado Procedural 3D Optimizado**: Auto-generación de superficies con alta fidelidad y optimizaciones de frustum culling y instanced rendering.
+- 📡 **Catálogo Extendido Dinámico con Caché**: Visualización de sistemas estelares con filtrado instantáneo gracias al sistema de persistencia en memoria local.
 - 🔬 **Explorador Único (`ExplorerPage`)**: Detalles termodinámicos (temperatura de equilibrio $K$, luminosidad, metalicidades y edad precalculada de estrellas host).
 - 🧑‍🚀 **Motor RLS y Computación en Supabase**: Las lógicas pesadas para inferencia se mantienen en DB para aligerar la responsividad y seguridad del cliente (Row Level Security activo).
 

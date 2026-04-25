@@ -206,7 +206,7 @@ export function PlanetDetailPage() {
               {similarPlanets.map((sp) => (
                 <div key={sp.planet.id} style={{ flex: '0 0 200px' }}>
                   <Link
-                    to={`/planet/${encodeURIComponent(sp.planet.pl_name)}`}
+                    to={`/explore/${encodeURIComponent(sp.planet.pl_name)}`}
                     style={{
                       display: 'block',
                       backgroundColor: '#0f0f0f',

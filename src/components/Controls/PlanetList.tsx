@@ -1,69 +1,105 @@
-import { Mountain, Globe, Wind, Flame, Snowflake, Droplets, HelpCircle } from 'lucide-react'
 import { useStore } from '../../store/useStore'
 import type { Exoplanet } from '../../data/types'
-import { getScoreColor, getScoreBarColor } from '../../constants/colors'
 
-const typeIcons: Record<string, React.ReactNode> = {
-  rocky: <Mountain size={14} style={{ color: 'rgba(255,255,255,0.4)' }} />,
-  super_earth: <Globe size={14} style={{ color: 'rgba(255,255,255,0.4)' }} />,
-  gas_giant: <Wind size={14} style={{ color: 'rgba(255,255,255,0.4)' }} />,
-  hot_jupiter: <Flame size={14} style={{ color: 'rgba(255,255,255,0.4)' }} />,
-  ice_giant: <Snowflake size={14} style={{ color: 'rgba(255,255,255,0.4)' }} />,
-  mini_neptune: <Droplets size={14} style={{ color: 'rgba(255,255,255,0.4)' }} />,
-  lava_world: <Flame size={14} style={{ color: 'rgba(255,255,255,0.4)' }} />,
-  frozen_rocky: <Snowflake size={14} style={{ color: 'rgba(255,255,255,0.4)' }} />,
-  unknown: <HelpCircle size={14} style={{ color: 'rgba(255,255,255,0.4)' }} />,
-}
-
-function PlanetCard({ planet, isSelected, onClick }: {
-  planet: Exoplanet; isSelected: boolean; onClick: () => void
+function PlanetRow({ planet, isSelected, onClick, index }: {
+  planet: Exoplanet
+  isSelected: boolean
+  onClick: () => void
+  index: number
 }) {
   const score = planet.habitability_score
+  const typeLabel = planet.planet_type.replace('_', ' ').toUpperCase().slice(0, 12)
 
   return (
     <button
       onClick={onClick}
       style={{
-        width: '100%', textAlign: 'left', padding: 12, borderRadius: 8,
-        backgroundColor: isSelected ? 'rgba(255,255,255,0.06)' : 'transparent',
-        border: isSelected ? '1px solid rgba(255,255,255,0.1)' : '1px solid transparent',
-        cursor: 'pointer', transition: 'background-color 0.15s',
+        position: 'relative',
+        width: '100%', textAlign: 'left',
+        padding: '10px 12px',
+        background: isSelected ? 'rgba(34,211,238,0.08)' : 'transparent',
+        border: 'none',
+        borderLeft: isSelected ? '2px solid var(--hud-cyan)' : '2px solid transparent',
+        borderBottom: '1px dashed var(--border-hud)',
+        color: 'inherit',
+        cursor: 'pointer',
+        transition: 'background 160ms, border-color 160ms',
       }}
-      onMouseEnter={(e) => { if (!isSelected) e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.03)' }}
-      onMouseLeave={(e) => { if (!isSelected) e.currentTarget.style.backgroundColor = 'transparent' }}
+      onMouseEnter={(e) => {
+        if (!isSelected) e.currentTarget.style.background = 'rgba(255,255,255,0.035)'
+      }}
+      onMouseLeave={(e) => {
+        if (!isSelected) e.currentTarget.style.background = 'transparent'
+      }}
     >
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
-        <div style={{ minWidth: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            {typeIcons[planet.planet_type] ?? typeIcons.unknown}
-            <span style={{
-              fontSize: 13, fontWeight: 500, color: '#fff',
-              whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-            }}>
-              {planet.pl_name}
-            </span>
-          </div>
-          <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginTop: 2 }}>
-            {planet.hostname} · {planet.disc_year ?? '—'}
-          </div>
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        gap: 8, marginBottom: 4,
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, flex: 1 }}>
+          <span style={{
+            fontFamily: 'var(--font-mono)', fontSize: 9,
+            color: 'var(--text-dim)', letterSpacing: 1,
+            flexShrink: 0,
+          }}>
+            {(index + 1).toString().padStart(3, '0')}
+          </span>
+          <span style={{
+            fontFamily: 'var(--font-hero)', fontSize: 12, fontWeight: 500,
+            color: 'var(--text-primary)', letterSpacing: '0.04em',
+            textTransform: 'uppercase',
+            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+          }}>
+            {planet.pl_name}
+          </span>
         </div>
-
-        {/* Score */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-          <div style={{ width: 48, height: 4, borderRadius: 999, backgroundColor: 'rgba(255,255,255,0.06)' }}>
-            <div style={{
-              height: '100%', borderRadius: 999, backgroundColor: getScoreBarColor(score),
-              width: `${Math.min(score, 100)}%`,
-            }} />
-          </div>
-          <span style={{ fontSize: 11, color: getScoreColor(score), width: 28, textAlign: 'right' }}>{score.toFixed(1)}</span>
-        </div>
+        <span style={{
+          fontFamily: 'var(--font-mono)', fontSize: 10,
+          color: 'var(--text-primary)',
+          flexShrink: 0,
+        }}>
+          {score.toFixed(0)}
+        </span>
       </div>
 
-      <div style={{ display: 'flex', gap: 12, marginTop: 6, fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>
-        {planet.pl_eqt !== null && <span>{planet.pl_eqt.toFixed(0)} K</span>}
-        {planet.pl_rade !== null && <span>{planet.pl_rade.toFixed(2)} R⊕</span>}
-        {planet.pl_masse !== null && <span>{planet.pl_masse.toFixed(1)} M⊕</span>}
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 10,
+        fontFamily: 'var(--font-mono)', fontSize: 9,
+        color: 'var(--text-dim)', letterSpacing: 1,
+      }}>
+        <span>{typeLabel}</span>
+        {planet.in_habitable_zone && (
+          <span style={{
+            padding: '1px 5px',
+            border: '1px solid var(--border-hud-strong)',
+            color: 'var(--text-primary)',
+            letterSpacing: 1.5,
+          }}>
+            HZ
+          </span>
+        )}
+        {planet.pl_eqt !== null && (
+          <span>{planet.pl_eqt.toFixed(0)}K</span>
+        )}
+        {planet.pl_rade !== null && (
+          <span>{planet.pl_rade.toFixed(2)}R⊕</span>
+        )}
+      </div>
+
+      {/* Mini score bar */}
+      <div style={{
+        marginTop: 6, height: 2,
+        background: 'rgba(255,255,255,0.06)',
+        position: 'relative',
+      }}>
+        <div style={{
+          position: 'absolute', left: 0, top: 0, bottom: 0,
+          width: `${Math.min(score, 100)}%`,
+          background: score >= 60
+            ? 'var(--hud-cyan)'
+            : 'var(--hud-line-soft)',
+          boxShadow: score >= 60 ? '0 0 4px var(--hud-cyan)' : 'none',
+        }} />
       </div>
     </button>
   )
@@ -76,24 +112,50 @@ export function PlanetList() {
 
   const visible = filteredPlanets.slice(0, 100)
 
+  if (filteredPlanets.length === 0) {
+    return (
+      <div style={{
+        padding: 32, textAlign: 'center',
+        fontFamily: 'var(--font-mono)', fontSize: 11,
+        color: 'var(--text-muted)', letterSpacing: 1, textTransform: 'uppercase',
+      }}>
+        No matches · Widen filters
+      </div>
+    )
+  }
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 2, padding: 8 }}>
-      {visible.map((planet) => (
-        <PlanetCard
-          key={planet.id}
-          planet={planet}
-          isSelected={selectedPlanet?.id === planet.id}
-          onClick={() => setSelectedPlanet(planet)}
-        />
-      ))}
+    <div>
+      <div style={{
+        padding: '10px 14px',
+        borderBottom: '1px solid var(--border-hud)',
+        fontFamily: 'var(--font-mono)', fontSize: 9,
+        color: 'var(--text-dim)', letterSpacing: 2, textTransform: 'uppercase',
+        display: 'flex', justifyContent: 'space-between',
+      }}>
+        <span>TARGETS</span>
+        <span>{visible.length} / {filteredPlanets.length.toLocaleString()}</span>
+      </div>
+
+      <div>
+        {visible.map((planet, i) => (
+          <PlanetRow
+            key={planet.id}
+            planet={planet}
+            index={i}
+            isSelected={selectedPlanet?.id === planet.id}
+            onClick={() => setSelectedPlanet(planet)}
+          />
+        ))}
+      </div>
+
       {filteredPlanets.length > 100 && (
-        <div style={{ padding: 12, textAlign: 'center', fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>
-          Showing 100 of {filteredPlanets.length.toLocaleString()} results
-        </div>
-      )}
-      {filteredPlanets.length === 0 && (
-        <div style={{ padding: 40, textAlign: 'center', fontSize: 13, color: 'rgba(255,255,255,0.4)' }}>
-          No planets match your filters
+        <div style={{
+          padding: '12px 14px', textAlign: 'center',
+          fontFamily: 'var(--font-mono)', fontSize: 9,
+          color: 'var(--text-dim)', letterSpacing: 1.5, textTransform: 'uppercase',
+        }}>
+          + {(filteredPlanets.length - 100).toLocaleString()} more · refine query
         </div>
       )}
     </div>

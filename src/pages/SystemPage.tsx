@@ -273,7 +273,7 @@ export function SystemPage() {
             {systemPlanets.map((planet) => (
               <Link
                 key={planet.id}
-                to={`/planet/${encodeURIComponent(planet.pl_name)}`}
+                to={`/explore/${encodeURIComponent(planet.pl_name)}`}
                 style={{ textDecoration: 'none' }}
               >
                 <div
