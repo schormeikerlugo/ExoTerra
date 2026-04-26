@@ -12,7 +12,7 @@ import { SectionIndicator } from '../components/HUD/SectionIndicator'
 import { RegistrationField } from '../components/HUD/RegistrationField'
 import { HatchFill } from '../components/HUD/HatchFill'
 import { TrackingCode } from '../components/HUD/TrackingCode'
-import { DiagonalAccent } from '../components/HUD/DiagonalAccent'
+
 import { buildSystemTelemetry } from '../utils/planetTelemetry'
 import { getExoplanetTexture } from '../utils/textureMap'
 import { planetNameToSeed } from '../utils/planetSeed'
@@ -70,7 +70,7 @@ const DISCOVERY_METHODS: { key: string; Icon: LucideIcon }[] = [
 
 export function LandingPage() {
   const planets = useStore((s) => s.planets)
-  const updateFilter = useStore((s) => s.updateFilter)
+
   const setSelectedPlanet = useStore((s) => s.setSelectedPlanet)
 
   // Pre-select a random top-10 habitable planet so downstream pages have a default
