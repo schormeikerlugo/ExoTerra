@@ -35,11 +35,13 @@ export function CompareTray() {
 
   return (
     <div
+      className="compare-tray"
       style={{
         position: 'fixed',
         right: 24, bottom: 24,
         zIndex: 60,
         pointerEvents: 'none',
+        maxWidth: 'calc(100vw - 32px)',
       }}
     >
       <AnimatePresence>
@@ -52,7 +54,7 @@ export function CompareTray() {
             style={{
               pointerEvents: 'auto',
               marginBottom: 10,
-              width: 320,
+              width: 'min(320px, calc(100vw - 32px))',
               background: 'rgba(0,0,0,0.78)',
               border: '1px solid var(--border-hud)',
               backdropFilter: 'blur(14px) saturate(1.1)',

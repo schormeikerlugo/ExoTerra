@@ -117,7 +117,7 @@ export function ExplorePage() {
         >
           <PlanetScene
             autoRotate={false}
-            enableZoom
+            enableZoom={false}
             rotatePlanet
             cameraDistance={cameraDistance}
             targetOffsetX={targetOffsetX}

@@ -16,6 +16,7 @@ La magia de ExoTerra y su proceso de auto-generación visual e interfaces han si
 - **Estilación y UI:** `TailwindCSS v4` para construir rápidamente los componentes astronómicos "glassmorphic" limpios. `Zustand` se utiliza para la gerencia liviana del estado global.
 - **Base de Datos y Procedimientos (Backend):** [Supabase](https://supabase.io/) con PostgreSQL. En lugar de calcular cada gráfico localmente, potentes Triggers PL/pgSQL nativos generan matemáticamente un `habitability_score`, infieren colores de las atmósferas y densidades al momento de la inserción de datos.
 - **Optimización y Cache:** Implementación de un sistema de caché local (`planetsCache.ts`) para minimizar latencias de red y optimizaciones de renderizado en `PlanetScene.tsx` para garantizar 60 FPS estables.
+- **Animaciones y Motion:** Integración de `Motion` (Framer Motion) para transiciones cinemáticas, scroll-driven animations y micro-interacciones fluidas en toda la experiencia.
 - **Algoritmia e Ingesta:** Scripts diseñados en `Python` extraen, procesan y limpian la big-data astronómica pura desde los archivos CSV originales de la NASA.
 
 ## 📸 Galería del Proyecto
@@ -39,9 +40,11 @@ Aquí puedes dar un vistazo a cómo hemos enlazado los datos procedimentales par
 
 ## ⚙️ Características Actuales
 - 🌍 **Renderizado Procedural 3D Optimizado**: Auto-generación de superficies con alta fidelidad y optimizaciones de frustum culling y instanced rendering.
+- 🚀 **Landing Page Cinemática**: Experiencia de entrada inmersiva con animaciones scroll-driven, hero 3D a pantalla completa y navegación fluida por secciones temáticas.
 - 📡 **Catálogo Extendido Dinámico con Caché**: Visualización de sistemas estelares con filtrado instantáneo gracias al sistema de persistencia en memoria local.
-- 📟 **Interfaz HUD & Telemetría Pro**: Nuevos componentes de interfaz técnica (Sparklines, Barcodes, CornerBrackets) para una inmersión científica completa.
-- 🔬 **Explorador Único (`ExplorerPage`)**: Detalles termodinámicos (temperatura de equilibrio $K$, luminosidad, metalicidades y edad precalculada de estrellas host).
+- 📟 **Suite HUD Avanzada**: Componentes de interfaz técnica de grado militar — `DiagonalAccent`, `HatchFill`, `NotchedFrame`, `RegistrationField`, `TrackingCode`, `MicroSection`, `Sparklines`, `Barcodes` y `CornerBrackets`.
+- ⚖️ **Comparador de Exoplanetas**: Sistema de comparación side-by-side con bandeja interactiva (`CompareTray`) para contrastar propiedades físicas y orbitales entre múltiples mundos.
+- 🔬 **Explorador Único (`ExplorePage`)**: Vista detallada con telemetría en tiempo real, detalles termodinámicos, parámetros orbitales y contexto del sistema estelar host.
 - 🧑‍🚀 **Motor RLS y Computación en Supabase**: Las lógicas pesadas para inferencia se mantienen en DB para aligerar la responsividad y seguridad del cliente (Row Level Security activo).
 
 ## 🛠️ Instalación y Desarrollo Local

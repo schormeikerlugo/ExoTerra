@@ -1,5 +1,6 @@
 import { Link, useLocation } from 'react-router-dom'
 import { useEffect, useRef, useState } from 'react'
+import { Menu, X } from 'lucide-react'
 
 const NAV_LINKS = [
   { to: '/',         label: 'Home',     code: '01' },
@@ -10,23 +11,27 @@ const NAV_LINKS = [
   { to: '/stats',    label: 'Stats',    code: '06' },
 ]
 
-function useClock() {
-  const [now, setNow] = useState<Date>(() => new Date())
-  useEffect(() => {
-    const id = window.setInterval(() => setNow(new Date()), 1000)
-    return () => window.clearInterval(id)
-  }, [])
-  return now
-}
-
 export function Navbar() {
   const location = useLocation()
-  const now = useClock()
-  const time = now.toISOString().slice(11, 19)
 
   const [scrolled, setScrolled] = useState(false)
   const [hidden, setHidden] = useState(false)
+  const [mobileOpen, setMobileOpen] = useState(false)
   const lastY = useRef(0)
+
+  // Close mobile drawer when route changes
+  useEffect(() => {
+    setMobileOpen(false)
+  }, [location.pathname])
+
+  // Lock body scroll while mobile drawer is open
+  useEffect(() => {
+    if (mobileOpen) {
+      const prev = document.body.style.overflow
+      document.body.style.overflow = 'hidden'
+      return () => { document.body.style.overflow = prev }
+    }
+  }, [mobileOpen])
 
   useEffect(() => {
     lastY.current = window.scrollY
@@ -136,23 +141,11 @@ export function Navbar() {
           >
             EXOTERRA
           </span>
-          <span
-            style={{
-              fontFamily: 'var(--font-mono)',
-              fontSize: 9,
-              color: 'var(--text-primary)',
-              letterSpacing: 1.5,
-              padding: '3px 7px',
-              border: '1px solid var(--border-hud-strong)',
-              lineHeight: 1,
-            }}
-          >
-            v2.1.0
-          </span>
         </Link>
 
-        {/* Nav links (mono uppercase) */}
+        {/* Nav links (mono uppercase) — hidden on mobile, replaced by hamburger */}
         <div
+          className="navbar-links"
           style={{
             display: 'flex',
             alignItems: 'center',
@@ -274,18 +267,26 @@ export function Navbar() {
             LIVE
           </span>
 
-          <span style={{ width: 1, height: 14, background: 'var(--border-hud)' }} />
-
-          <span
+          {/* Hamburger trigger — only visible on mobile */}
+          <button
+            type="button"
+            aria-label={mobileOpen ? 'Close menu' : 'Open menu'}
+            aria-expanded={mobileOpen}
+            onClick={() => setMobileOpen((v) => !v)}
+            className="navbar-hamburger"
             style={{
-              fontFamily: 'var(--font-mono)',
-              fontSize: 10,
-              color: 'var(--text-muted)',
-              letterSpacing: 1.5,
+              display: 'none',
+              alignItems: 'center', justifyContent: 'center',
+              width: 36, height: 36,
+              background: 'transparent',
+              border: '1px solid var(--border-hud)',
+              color: 'var(--text-primary)',
+              cursor: 'pointer',
+              transition: 'all 180ms',
             }}
           >
-            {time}
-          </span>
+            {mobileOpen ? <X size={16} /> : <Menu size={16} />}
+          </button>
         </div>
 
         {/* Right bracket tick */}
@@ -300,6 +301,74 @@ export function Navbar() {
           <span style={{ width: 8, height: 1, background: 'var(--hud-line)' }} />
         </span>
       </div>
+
+      {/* ─── Mobile drawer ─── */}
+      <div
+        className="navbar-drawer"
+        data-open={mobileOpen}
+        style={{
+          position: 'fixed',
+          top: 56, left: 0, right: 0, bottom: 0,
+          zIndex: 49,
+          background: 'rgba(0,0,0,0.92)',
+          backdropFilter: 'blur(18px) saturate(1.2)',
+          WebkitBackdropFilter: 'blur(18px) saturate(1.2)',
+          borderTop: '1px solid var(--border-hud)',
+          opacity: mobileOpen ? 1 : 0,
+          pointerEvents: mobileOpen ? 'auto' : 'none',
+          transform: mobileOpen ? 'translateY(0)' : 'translateY(-12px)',
+          transition: 'opacity 240ms ease, transform 280ms cubic-bezier(0.22,1,0.36,1)',
+          display: 'flex',
+          flexDirection: 'column',
+          padding: '20px var(--gutter)',
+          gap: 0,
+        }}
+      >
+        {NAV_LINKS.map(({ to, label, code }) => {
+          const active = isActiveLink(to)
+          return (
+            <Link
+              key={to}
+              to={to}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 16,
+                padding: '18px 4px',
+                borderBottom: '1px dashed var(--border-hud)',
+                fontFamily: 'var(--font-mono)',
+                fontSize: 14,
+                letterSpacing: 2,
+                textTransform: 'uppercase',
+                textDecoration: 'none',
+                color: active ? 'var(--text-primary)' : 'var(--text-muted)',
+                fontWeight: active ? 600 : 500,
+              }}
+            >
+              <span style={{
+                fontSize: 11,
+                color: active ? 'var(--hud-cyan)' : 'var(--text-dim)',
+                minWidth: 24,
+              }}>
+                {code}
+              </span>
+              <span style={{ flex: 1 }}>{label}</span>
+              {active && <span style={{ color: 'var(--hud-cyan)' }}>●</span>}
+            </Link>
+          )
+        })}
+      </div>
+
+      <style>{`
+        .navbar-hamburger:hover {
+          border-color: var(--hud-cyan) !important;
+          color: var(--hud-cyan) !important;
+        }
+        @media (max-width: 860px) {
+          .navbar-links { display: none !important; }
+          .navbar-hamburger { display: inline-flex !important; }
+        }
+      `}</style>
     </nav>
   )
 }

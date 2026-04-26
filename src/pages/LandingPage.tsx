@@ -9,6 +9,10 @@ import { HUDPanel } from '../components/HUD/HUDPanel'
 import { Barcode } from '../components/HUD/Barcode'
 import { Sparkline } from '../components/HUD/Sparkline'
 import { SectionIndicator } from '../components/HUD/SectionIndicator'
+import { RegistrationField } from '../components/HUD/RegistrationField'
+import { HatchFill } from '../components/HUD/HatchFill'
+import { TrackingCode } from '../components/HUD/TrackingCode'
+import { DiagonalAccent } from '../components/HUD/DiagonalAccent'
 import { buildSystemTelemetry } from '../utils/planetTelemetry'
 import { getExoplanetTexture } from '../utils/textureMap'
 import { planetNameToSeed } from '../utils/planetSeed'
@@ -66,6 +70,7 @@ const DISCOVERY_METHODS: { key: string; Icon: LucideIcon }[] = [
 
 export function LandingPage() {
   const planets = useStore((s) => s.planets)
+  const updateFilter = useStore((s) => s.updateFilter)
   const setSelectedPlanet = useStore((s) => s.setSelectedPlanet)
 
   // Pre-select a random top-10 habitable planet so downstream pages have a default
@@ -78,7 +83,7 @@ export function LandingPage() {
     if (random) setSelectedPlanet(random)
   }, [planets, setSelectedPlanet])
 
-  // Stats calculations
+  // Stats calculations — includes extreme records for hero telemetry
   const stats = useMemo(() => {
     const exoplanets = planets.filter((p) => p.id >= 0)
     const totalPlanets = exoplanets.length
@@ -96,7 +101,99 @@ export function LandingPage() {
       closestPlanet = closest.pl_name
     }
 
-    return { totalPlanets, habitableZone, discoveryMethods: methods.size, closestPlanet }
+    // Hottest planet (max equilibrium temp)
+    let hottestName = '—'
+    const withTemp = exoplanets.filter((p) => p.pl_eqt !== null && p.pl_eqt > 0)
+    if (withTemp.length > 0) {
+      const hot = withTemp.reduce((a, b) => (a.pl_eqt! > b.pl_eqt! ? a : b))
+      hottestName = hot.pl_name
+    }
+
+    // Largest planet (max radius)
+    let largestName = '—'
+    const withRadius = exoplanets.filter((p) => p.pl_rade !== null && p.pl_rade > 0)
+    if (withRadius.length > 0) {
+      const big = withRadius.reduce((a, b) => (a.pl_rade! > b.pl_rade! ? a : b))
+      largestName = big.pl_name
+    }
+
+    // Top habitability scorer
+    let topScorerName = '—'
+    let topScore = 0
+    if (exoplanets.length > 0) {
+      const top = exoplanets.reduce((a, b) => (a.habitability_score > b.habitability_score ? a : b))
+      topScorerName = top.pl_name
+      topScore = top.habitability_score
+    }
+
+    // Most recent discovery year
+    let latestYear: number | null = null
+    const withYear = exoplanets.filter((p) => p.disc_year !== null)
+    if (withYear.length > 0) {
+      latestYear = Math.max(...withYear.map((p) => p.disc_year!))
+    }
+
+    // ─── Distributions for the new visualizations in System Overview ───
+
+    // 1. By planet type (8 bars)
+    const TYPE_LABELS: Record<string, string> = {
+      rocky: 'Rocky',
+      super_earth: 'Super Earth',
+      gas_giant: 'Gas Giant',
+      hot_jupiter: 'Hot Jupiter',
+      ice_giant: 'Ice Giant',
+      mini_neptune: 'Mini Neptune',
+      lava_world: 'Lava World',
+      frozen_rocky: 'Frozen Rocky',
+    }
+    const typeDistribution = Object.keys(TYPE_LABELS)
+      .map((t) => {
+        const count = exoplanets.filter((p) => p.planet_type === t).length
+        return {
+          type: t,
+          label: TYPE_LABELS[t],
+          count,
+          percent: totalPlanets > 0 ? (count / totalPlanets) * 100 : 0,
+        }
+      })
+      .sort((a, b) => b.count - a.count)
+
+    // 2. Discoveries per year (timeline)
+    const yearCounts: Record<number, number> = {}
+    exoplanets.forEach((p) => {
+      if (p.disc_year !== null) yearCounts[p.disc_year] = (yearCounts[p.disc_year] || 0) + 1
+    })
+    const allYears = Object.keys(yearCounts).map(Number).sort((a, b) => a - b)
+    const minYearDist = allYears[0] ?? 1995
+    const maxYearDist = allYears[allYears.length - 1] ?? new Date().getFullYear()
+    const yearDistribution: { year: number; count: number }[] = []
+    for (let y = minYearDist; y <= maxYearDist; y++) {
+      yearDistribution.push({ year: y, count: yearCounts[y] || 0 })
+    }
+    const peakYear = yearDistribution.reduce(
+      (best, item) => (item.count > best.count ? item : best),
+      yearDistribution[0] ?? { year: 0, count: 0 },
+    )
+
+    // 3. Habitability score histogram (10 buckets, 0–100)
+    const scoreHistogram = Array.from({ length: 10 }, (_, i) => ({
+      label: i === 9 ? '90+' : `${i * 10}`,
+      min: i * 10,
+      max: i === 9 ? 100 : (i + 1) * 10,
+      count: 0,
+    }))
+    exoplanets.forEach((p) => {
+      const idx = Math.min(Math.floor(p.habitability_score / 10), 9)
+      scoreHistogram[idx].count++
+    })
+    const earthLikeCount = scoreHistogram.slice(6).reduce((s, b) => s + b.count, 0) // ≥60
+
+    return {
+      totalPlanets, habitableZone, discoveryMethods: methods.size,
+      closestPlanet, hottestName, largestName, topScorerName, topScore, latestYear,
+      typeDistribution, yearDistribution, peakYear, scoreHistogram, earthLikeCount,
+      minYearDist, maxYearDist,
+    }
   }, [planets])
 
   // Featured planets: top 6 by habitability_score (exclude solar system)
@@ -207,6 +304,7 @@ export function LandingPage() {
 
         {/* Global frame: corner brackets (scale-in) */}
         <motion.div
+          className="hero-frame"
           initial={{ opacity: 0, scale: 0.985 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1], delay: 0.0 }}
@@ -215,8 +313,20 @@ export function LandingPage() {
           <CornerBrackets size={22} thickness={1} color="var(--hud-line)" />
         </motion.div>
 
+        {/* Ambient registration marks — print-style alignment guides scattered */}
+        <motion.div
+          className="hero-decor hero-decor--ambient"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 1.4, delay: 0.5 }}
+          style={{ position: 'absolute', inset: 0, zIndex: 2, pointerEvents: 'none' }}
+        >
+          <RegistrationField seed="landing-hero" density="dense" opacity={0.55} hideMobile inset={48} />
+        </motion.div>
+
         {/* Top-left — archive identity */}
         <motion.div
+          className="hero-corner"
           initial={{ opacity: 0, x: -16 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1], delay: 0.35 }}
@@ -229,10 +339,15 @@ export function LandingPage() {
           {systemTelemetry.topLeft.map((t) => (
             <TelemetryRow key={t.label} label={t.label} value={t.value} align="left" />
           ))}
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
+            <HatchFill style={{ width: 18, height: 8 }} opacity={0.4} />
+            <TrackingCode seed="hero-tl" variant="hex" />
+          </div>
         </motion.div>
 
         {/* Top-right — sync / status */}
         <motion.div
+          className="hero-corner"
           initial={{ opacity: 0, x: 16 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1], delay: 0.35 }}
@@ -245,10 +360,15 @@ export function LandingPage() {
           {systemTelemetry.topRight.map((t) => (
             <TelemetryRow key={t.label} label={t.label} value={t.value} align="right" />
           ))}
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, marginTop: 4, alignSelf: 'flex-end' }}>
+            <TrackingCode seed="hero-tr" variant="rec" />
+            <HatchFill style={{ width: 18, height: 8 }} opacity={0.4} />
+          </div>
         </motion.div>
 
         {/* Bottom-left — dataset counts (slide from below) */}
         <motion.div
+          className="hero-corner"
           initial={{ opacity: 0, x: -16, y: 10 }}
           animate={{ opacity: 1, x: 0, y: 0 }}
           transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1], delay: 0.5 }}
@@ -258,6 +378,10 @@ export function LandingPage() {
             pointerEvents: 'none',
           }}
         >
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+            <TrackingCode seed="hero-bl" variant="channel" />
+            <HatchFill style={{ width: 18, height: 8 }} opacity={0.4} />
+          </div>
           {systemTelemetry.bottomLeft.map((t) => (
             <TelemetryRow key={t.label} label={t.label} value={t.value} align="left" />
           ))}
@@ -265,6 +389,7 @@ export function LandingPage() {
 
         {/* Bottom-right — nearest / uplink clock */}
         <motion.div
+          className="hero-corner"
           initial={{ opacity: 0, x: 16, y: 10 }}
           animate={{ opacity: 1, x: 0, y: 0 }}
           transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1], delay: 0.5 }}
@@ -274,6 +399,10 @@ export function LandingPage() {
             pointerEvents: 'none',
           }}
         >
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, marginBottom: 4, alignSelf: 'flex-end' }}>
+            <HatchFill style={{ width: 18, height: 8 }} opacity={0.4} />
+            <TrackingCode seed="hero-br" variant="lot" />
+          </div>
           {systemTelemetry.bottomRight.map((t) => (
             <TelemetryRow key={t.label} label={t.label} value={t.value} align="right" />
           ))}
@@ -341,6 +470,7 @@ export function LandingPage() {
           </motion.div>
 
           <motion.div
+            className="hero-cta-row"
             initial={{ opacity: 0, y: 14 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7, delay: 1.85, ease: [0.22, 1, 0.36, 1] }}
@@ -388,29 +518,35 @@ export function LandingPage() {
           </motion.div>
         </div>
 
-        {/* Bottom dataset bar */}
-        <motion.div
-          initial={{ opacity: 0, x: '-50%', y: 10 }}
-          animate={{ opacity: 1, x: '-50%', y: 0 }}
-          transition={{ duration: 0.7, delay: 0.7, ease: [0.22, 1, 0.36, 1] }}
-          style={{
-            position: 'absolute',
-            bottom: 32,
-            left: '50%',
-            zIndex: 4,
-            pointerEvents: 'none',
-          }}
-        >
-          <TelemetryLine
-            items={[
-              { label: 'DATASET', value: 'NASA EXOPLANET ARCHIVE' },
-              { label: 'INDEXED', value: `${(stats.totalPlanets || 6158).toLocaleString()} OBJECTS` },
-              { label: 'HABITABLE', value: `${stats.habitableZone.toLocaleString()}` },
-              { label: 'SYNC', value: new Date().toISOString().slice(0, 10).replace(/-/g, '.') },
-            ]}
-            style={{ justifyContent: 'center' }}
-          />
-        </motion.div>
+        {/* ─── Mobile-only decorative stamps in the four hero corners ───
+            Positioned INSIDE the corner-bracket frame (which sits at
+            inset: 80px 16px 56px 16px on mobile, brackets size 22px).
+            Each stamp sits just inside the bracket's L-shape so the bracket
+            visually wraps around it. */}
+        <div className="hero-decor-mobile" aria-hidden style={{
+          display: 'none',
+          position: 'absolute',
+          inset: 0,
+          zIndex: 4,
+          pointerEvents: 'none',
+        }}>
+          <div style={{ position: 'absolute', top: 90, left: 26, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <HatchFill style={{ width: 16, height: 7 }} opacity={0.45} />
+            <TrackingCode seed="hero-m-tl" variant="hex" />
+          </div>
+          <div style={{ position: 'absolute', top: 90, right: 26, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <TrackingCode seed="hero-m-tr" variant="rec" />
+            <HatchFill style={{ width: 16, height: 7 }} opacity={0.45} />
+          </div>
+          <div style={{ position: 'absolute', bottom: 66, left: 26, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <TrackingCode seed="hero-m-bl" variant="channel" />
+            <HatchFill style={{ width: 16, height: 7 }} opacity={0.45} />
+          </div>
+          <div style={{ position: 'absolute', bottom: 66, right: 26, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <HatchFill style={{ width: 16, height: 7 }} opacity={0.45} />
+            <TrackingCode seed="hero-m-br" variant="lot" />
+          </div>
+        </div>
 
         {/* Full-hero vertical black gradient 0→100, fusing into page bg (#000) */}
         <div style={{
@@ -430,7 +566,7 @@ export function LandingPage() {
       </section>
 
       {/* ─── 1. SYSTEM OVERVIEW ─── */}
-      <section data-section="02" style={{ padding: '200px var(--gutter) 0', backgroundColor: 'transparent' }}>
+      <section data-section="02" style={{ padding: '200px var(--gutter) 160px', backgroundColor: 'transparent' }}>
         <div style={{ maxWidth: 'var(--max-w)', margin: '0 auto' }}>
 
           {/* Giant display heading */}
@@ -461,7 +597,7 @@ export function LandingPage() {
           </h2>
 
           {/* Below: copy + CTAs | telemetry rail */}
-          <div style={{
+          <div className="sec01-grid" style={{
             marginTop: 80,
             display: 'grid',
             gridTemplateColumns: 'minmax(0, 1.15fr) minmax(0, 1fr)',
@@ -469,7 +605,7 @@ export function LandingPage() {
             alignItems: 'start',
           }}>
             {/* Left: copy + CTAs */}
-            <div>
+            <div className="sec01-copy">
               <p style={{
                 fontSize: 17, color: 'var(--text-muted)', lineHeight: 1.7,
                 margin: 0, maxWidth: '56ch',
@@ -479,34 +615,10 @@ export function LandingPage() {
                 mass, radius, and orbital parameters shape its surface, atmosphere, and appearance.
                 Built for scientists, educators, and space enthusiasts.
               </p>
-              <div style={{ display: 'flex', gap: 12, marginTop: 36, flexWrap: 'wrap' }}>
-                <Link to="/explorer" className="hud-cta-primary" style={{
-                  display: 'inline-flex', alignItems: 'center', gap: 10,
-                  padding: '14px 28px',
-                  background: 'var(--hud-cyan)', color: 'var(--bg-void)',
-                  fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 600,
-                  letterSpacing: 2, textTransform: 'uppercase', textDecoration: 'none',
-                  clipPath: 'polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px)',
-                }}>
-                  <ChevronRight size={13} strokeWidth={2.5} />
-                  Enter 3D Explorer
-                </Link>
-                <Link to="/catalog" className="hud-cta-secondary" style={{
-                  display: 'inline-flex', alignItems: 'center', gap: 10,
-                  padding: '14px 28px',
-                  background: 'transparent', color: 'var(--hud-cyan)',
-                  fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 500,
-                  letterSpacing: 2, textTransform: 'uppercase', textDecoration: 'none',
-                  border: '1px solid var(--border-hud-strong)',
-                  clipPath: 'polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px)',
-                }}>
-                  [ Browse Catalog ]
-                </Link>
-              </div>
             </div>
 
             {/* Right: telemetry rail with hex + leader lines */}
-            <div style={{
+            <div className="sec01-rail" style={{
               display: 'flex', flexDirection: 'column', gap: 28,
               borderLeft: '1px solid var(--border-hud)',
               paddingLeft: 40,
@@ -556,11 +668,140 @@ export function LandingPage() {
               ))}
             </div>
           </div>
+
+          {/* ═══════════════════════════════════════════════════════════
+              KEY INSIGHTS — 4 curated readings drawn from the live archive.
+              Pure text + a single big number per row. Information-dense but
+              never overwhelming: the eye scans 4 short paragraphs, not charts.
+          ═══════════════════════════════════════════════════════════ */}
+          <div data-reveal="up" style={{
+            marginTop: 140,
+            paddingTop: 36,
+            borderTop: '1px solid var(--border-hud)',
+          }}>
+            <div style={{
+              display: 'flex', alignItems: 'baseline', justifyContent: 'space-between',
+              gap: 24, flexWrap: 'wrap', marginBottom: 28,
+            }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 14 }}>
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-primary)', letterSpacing: 3 }}>A.01</span>
+                <span style={{ width: 32, height: 1, background: 'var(--hud-line)' }} />
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-muted)', letterSpacing: 2.5, textTransform: 'uppercase' }}>
+                  Key Insights · What the Numbers Reveal
+                </span>
+              </div>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--text-dim)', letterSpacing: 2 }}>
+                LIVE · COMPUTED FROM ARCHIVE
+              </span>
+            </div>
+
+            {(() => {
+              const dominant = stats.typeDistribution[0]
+              const rockyClass = stats.typeDistribution.find((t) => t.type === 'rocky')
+              const hzPct = stats.totalPlanets > 0 ? (stats.habitableZone / stats.totalPlanets) * 100 : 0
+              const yearsSpan = stats.maxYearDist - stats.minYearDist + 1
+              const avgPerYear = yearsSpan > 0 ? Math.round(stats.totalPlanets / yearsSpan) : 0
+
+              const insights = [
+                {
+                  bigNumber: dominant ? `${dominant.percent.toFixed(0)}%` : '—',
+                  title: 'Catalog skews to gas',
+                  body: dominant
+                    ? `${dominant.label} dominate the archive — ${dominant.count.toLocaleString()} of ${stats.totalPlanets.toLocaleString()} entries. Detection methods favor large, hot worlds; small rocky planets like ours are harder to spot, only ${rockyClass ? rockyClass.percent.toFixed(0) : '—'}% of the catalog.`
+                    : '—',
+                },
+                {
+                  bigNumber: `${stats.habitableZone.toLocaleString()}`,
+                  bigSuffix: ` of ${stats.totalPlanets.toLocaleString()}`,
+                  title: 'Sit inside the habitable zone',
+                  body: `That's ${hzPct.toFixed(1)}% — roughly 1 in ${stats.habitableZone > 0 ? Math.round(stats.totalPlanets / stats.habitableZone) : '—'}. From those, only ${stats.earthLikeCount.toLocaleString()} cross the score-60 threshold where Earth-like surface chemistry is plausible.`,
+                },
+                {
+                  bigNumber: `${avgPerYear}`,
+                  bigSuffix: ' / yr',
+                  title: 'Discovery cadence',
+                  body: `From the first confirmed detection in ${stats.minYearDist} to today (${yearsSpan} yrs of observation), the average is ~${avgPerYear} new planets per year. The peak — ${stats.peakYear.year} — added ${stats.peakYear.count.toLocaleString()} alone, mostly from telescope data releases.`,
+                },
+                {
+                  bigNumber: stats.topScorerName !== '—' ? `${stats.topScore.toFixed(1)}` : '—',
+                  bigSuffix: ' / 100',
+                  title: `Top score · ${stats.topScorerName}`,
+                  body: `The most Earth-like world currently in the archive. The score combines temperature, stellar flux, radius, mass, and host-star spectral class — a higher number means closer to Earth's measured profile.`,
+                },
+              ]
+
+              return (
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(2, 1fr)',
+                  gap: '36px 64px',
+                }} className="sec01-insights-grid">
+                  {insights.map((ins, i) => (
+                    <div
+                      key={ins.title}
+                      data-reveal="up"
+                      data-d={Math.min(i + 1, 8).toString()}
+                      style={{ display: 'flex', gap: 18, alignItems: 'flex-start' }}
+                    >
+                      <span style={{
+                        fontFamily: 'var(--font-mono)', fontSize: 10,
+                        color: 'var(--text-dim)', letterSpacing: 2,
+                        paddingTop: 8, minWidth: 28,
+                      }}>
+                        {(i + 1).toString().padStart(2, '0')}
+                      </span>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{
+                          display: 'inline-flex', alignItems: 'baseline', gap: 4,
+                          marginBottom: 6,
+                        }}>
+                          <span style={{
+                            fontFamily: 'var(--font-astra)',
+                            fontSize: 'clamp(28px, 3.4vw, 44px)',
+                            fontWeight: 600,
+                            color: 'var(--hud-cyan)',
+                            letterSpacing: '0.01em',
+                            lineHeight: 1,
+                            textShadow: '0 0 18px var(--hud-cyan-glow)',
+                          }}>
+                            {ins.bigNumber}
+                          </span>
+                          {ins.bigSuffix && (
+                            <span style={{
+                              fontFamily: 'var(--font-mono)', fontSize: 12,
+                              color: 'var(--text-dim)', letterSpacing: 1,
+                            }}>
+                              {ins.bigSuffix}
+                            </span>
+                          )}
+                        </div>
+                        <div style={{
+                          fontFamily: 'var(--font-hero)', fontSize: 14, fontWeight: 500,
+                          color: 'var(--text-primary)', letterSpacing: '0.04em',
+                          textTransform: 'uppercase',
+                          marginBottom: 8,
+                        }}>
+                          {ins.title}
+                        </div>
+                        <p style={{
+                          fontFamily: 'var(--font-body)', fontSize: 14,
+                          color: 'var(--text-muted)', lineHeight: 1.65,
+                          margin: 0, maxWidth: '50ch',
+                        }}>
+                          {ins.body}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )
+            })()}
+          </div>
         </div>
       </section>
 
       {/* ─── 2. MISSION SEQUENCE (full-width timeline, no container) ─── */}
-      <section data-section="03" style={{ padding: '140px var(--gutter)', backgroundColor: 'transparent' }}>
+      <section data-section="03" style={{ padding: '200px var(--gutter) 140px', backgroundColor: 'transparent' }}>
         <div style={{ maxWidth: 'var(--max-w)', margin: '0 auto' }}>
 
           {/* Big display heading */}
@@ -590,9 +831,9 @@ export function LandingPage() {
           </h2>
 
           {/* Timeline — full width, enlarged */}
-          <div style={{ marginTop: 96, position: 'relative' }}>
+          <div className="timeline-wrap" style={{ marginTop: 96, position: 'relative' }}>
             {/* Continuous vertical spine under the diamond column (col 2 center = 160 + 24 + 40 = 224) */}
-            <div style={{
+            <div className="timeline-spine" style={{
               position: 'absolute',
               left: 224, top: 30, bottom: 30,
               width: 1,
@@ -613,6 +854,7 @@ export function LandingPage() {
                   key={item.step}
                   data-reveal="up"
                   data-d={Math.min(i + 1, 8).toString()}
+                  className="timeline-row"
                   style={{
                     display: 'grid',
                     gridTemplateColumns: '160px 80px 200px 1fr',
@@ -625,7 +867,7 @@ export function LandingPage() {
                   }}
                 >
                   {/* Timestamp */}
-                  <div style={{
+                  <div className="timeline-cell timeline-cell-ts" style={{
                     fontFamily: 'var(--font-mono)', fontSize: 13,
                     color: 'var(--text-muted)', letterSpacing: '2px',
                     paddingTop: 10,
@@ -634,7 +876,7 @@ export function LandingPage() {
                   </div>
 
                   {/* Diamond node — halo + rhombus concentric + continuous animation */}
-                  <div style={{
+                  <div className="timeline-cell timeline-cell-node" style={{
                     position: 'relative',
                     width: 40, height: 40,
                     marginInline: 'auto',
@@ -664,7 +906,7 @@ export function LandingPage() {
                   </div>
 
                   {/* PHASE chip */}
-                  <div style={{ paddingTop: 12 }}>
+                  <div className="timeline-cell timeline-cell-chip" style={{ paddingTop: 12 }}>
                     <span style={{
                       display: 'inline-block',
                       fontFamily: 'var(--font-mono)', fontSize: 10,
@@ -680,7 +922,7 @@ export function LandingPage() {
                   </div>
 
                   {/* Title + desc — bigger */}
-                  <div>
+                  <div className="timeline-cell timeline-cell-body">
                     <h3 style={{
                       fontFamily: 'var(--font-hero)', fontWeight: 500,
                       fontSize: 'clamp(22px, 2.4vw, 32px)',
@@ -712,15 +954,41 @@ export function LandingPage() {
       <section data-section="04" style={{ padding: '140px var(--gutter)', backgroundColor: 'transparent' }}>
         <div style={{ maxWidth: 'var(--max-w)', margin: '0 auto' }}>
 
-          {/* Asymmetric display: copy left, HUGE title right-aligned */}
-          <div style={{
+          {/* Asymmetric display: HUGE title left, explainer content right */}
+          <div className="sec03-asym" style={{
             display: 'grid',
-            gridTemplateColumns: 'minmax(0, 0.9fr) minmax(0, 1.4fr)',
+            gridTemplateColumns: 'minmax(0, 1.2fr) minmax(0, 1fr)',
             gap: 72,
             alignItems: 'end',
           }}>
-            {/* Left: explainer content */}
-            <div>
+            {/* Left: display heading, left-aligned */}
+            <h2 data-reveal="up" data-d="2" className="sec03-heading" style={{
+              fontFamily: 'var(--font-hero)',
+              fontSize: 'clamp(48px, 8.5vw, 128px)',
+              fontWeight: 500,
+              lineHeight: 0.92,
+              letterSpacing: '0.01em',
+              textTransform: 'uppercase',
+              color: 'var(--text-primary)',
+              margin: 0,
+              textAlign: 'left',
+            }}>
+              Eight{' '}
+              <span style={{
+                fontFamily: 'var(--font-display)',
+                fontStyle: 'italic',
+                fontWeight: 300,
+                textTransform: 'none',
+                letterSpacing: '-0.01em',
+                color: 'var(--text-muted)',
+              }}>
+                classes
+              </span><br />
+              of world.
+            </h2>
+
+            {/* Right: explainer content */}
+            <div className="sec03-copy">
               <div style={{
                 fontFamily: 'var(--font-mono)', fontSize: 10,
                 color: 'var(--text-dim)', letterSpacing: 2, textTransform: 'uppercase',
@@ -738,7 +1006,7 @@ export function LandingPage() {
                 habitability scoring, and how each world reads at a glance.
               </p>
 
-              <div style={{
+              <div className="sec03-keyfacts" style={{
                 marginTop: 28,
                 display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px 20px',
                 paddingTop: 20,
@@ -759,32 +1027,6 @@ export function LandingPage() {
                 ))}
               </div>
             </div>
-
-            {/* Right: display heading, right-aligned */}
-            <h2 data-reveal="up" data-d="2" style={{
-              fontFamily: 'var(--font-hero)',
-              fontSize: 'clamp(48px, 8.5vw, 128px)',
-              fontWeight: 500,
-              lineHeight: 0.92,
-              letterSpacing: '0.01em',
-              textTransform: 'uppercase',
-              color: 'var(--text-primary)',
-              margin: 0,
-              textAlign: 'right',
-            }}>
-              Eight{' '}
-              <span style={{
-                fontFamily: 'var(--font-display)',
-                fontStyle: 'italic',
-                fontWeight: 300,
-                textTransform: 'none',
-                letterSpacing: '-0.01em',
-                color: 'var(--text-muted)',
-              }}>
-                classes
-              </span><br />
-              of world.
-            </h2>
           </div>
 
           <div style={{
@@ -1266,14 +1508,38 @@ export function LandingPage() {
       <section data-section="06" style={{ padding: '140px var(--gutter)', backgroundColor: 'transparent' }}>
         <div style={{ maxWidth: 'var(--max-w)', margin: '0 auto' }}>
 
-          {/* Asymmetric: copy left, display title right-aligned */}
-          <div style={{
+          {/* Asymmetric: HUGE title left, copy right (mobile stacks title-first) */}
+          <div className="sec05-asym" style={{
             display: 'grid',
-            gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1.6fr)',
+            gridTemplateColumns: 'minmax(0, 1.6fr) minmax(0, 1fr)',
             gap: 72,
             alignItems: 'end',
           }}>
-            <div>
+            <h2 data-reveal="up" data-d="2" className="sec05-heading" style={{
+              fontFamily: 'var(--font-hero)',
+              fontSize: 'clamp(48px, 8vw, 120px)',
+              fontWeight: 500,
+              lineHeight: 0.92,
+              letterSpacing: '0.01em',
+              textTransform: 'uppercase',
+              color: 'var(--text-primary)',
+              margin: 0,
+              textAlign: 'left',
+            }}>
+              A catalogue{' '}
+              <span style={{
+                fontFamily: 'var(--font-display)',
+                fontStyle: 'italic',
+                fontWeight: 300,
+                textTransform: 'none',
+                letterSpacing: '-0.01em',
+                color: 'var(--text-muted)',
+              }}>
+                that breathes
+              </span>.
+            </h2>
+
+            <div className="sec05-copy">
               <div style={{
                 fontFamily: 'var(--font-mono)', fontSize: 10,
                 color: 'var(--text-dim)', letterSpacing: 2, textTransform: 'uppercase',
@@ -1291,30 +1557,6 @@ export function LandingPage() {
                 pending additions from current observation campaigns.
               </p>
             </div>
-
-            <h2 data-reveal="up" data-d="2" style={{
-              fontFamily: 'var(--font-hero)',
-              fontSize: 'clamp(48px, 8vw, 120px)',
-              fontWeight: 500,
-              lineHeight: 0.92,
-              letterSpacing: '0.01em',
-              textTransform: 'uppercase',
-              color: 'var(--text-primary)',
-              margin: 0,
-              textAlign: 'right',
-            }}>
-              A catalogue{' '}
-              <span style={{
-                fontFamily: 'var(--font-display)',
-                fontStyle: 'italic',
-                fontWeight: 300,
-                textTransform: 'none',
-                letterSpacing: '-0.01em',
-                color: 'var(--text-muted)',
-              }}>
-                that breathes
-              </span>.
-            </h2>
           </div>
 
           <div style={{
@@ -1729,9 +1971,11 @@ export function LandingPage() {
             gap: 72,
             alignItems: 'start',
           }}>
-            {/* Left: radar SVG, no container */}
+            {/* Left: radar SVG, no container.
+                viewBox includes extra ±40u of padding outside the outer ring (r=275)
+                so labels at radius 305+ never clip against the SVG edge. */}
             <div style={{ position: 'relative', width: '100%', aspectRatio: '1 / 1', maxWidth: 640, margin: '0 auto' }}>
-              <svg viewBox="-300 -300 600 600" width="100%" height="100%" aria-hidden>
+              <svg viewBox="-360 -360 720 720" width="100%" height="100%" aria-hidden style={{ overflow: 'visible' }}>
                 {/* Concentric rings */}
                 {[80, 150, 220, 275].map((r, i) => (
                   <circle key={r} cx="0" cy="0" r={r}
@@ -1779,11 +2023,18 @@ export function LandingPage() {
                   const rad = (angleDeg * Math.PI) / 180
                   const x = Math.cos(rad) * r
                   const y = Math.sin(rad) * r
-                  const labelRadius = 275
+                  // Labels sit OUTSIDE the outer ring (r=275) with 30u of padding
+                  const labelRadius = 305
                   const lx = Math.cos(rad) * labelRadius
                   const ly = Math.sin(rad) * labelRadius
                   const anchor: 'start' | 'middle' | 'end' =
                     Math.abs(lx) < 40 ? 'middle' : lx > 0 ? 'start' : 'end'
+                  // Short labels for tight spacing — original key kept for store/filters
+                  const shortLabel =
+                    method.key === 'Radial Velocity' ? 'RADIAL VEL'
+                    : method.key === 'Transit Timing Variations' ? 'TTV'
+                    : method.key === 'Pulsar Timing' ? 'PULSAR'
+                    : method.key.toUpperCase()
                   return (
                     <g key={method.key}>
                       {/* Leader line from center to point */}
@@ -1794,23 +2045,27 @@ export function LandingPage() {
                       {/* Point marker: outer ring + inner dot */}
                       <circle cx={x} cy={y} r="8" fill="none" stroke="var(--hud-line)" strokeWidth="1" />
                       <circle cx={x} cy={y} r="3" fill="var(--text-primary)" />
-                      {/* Connector tick to outer label */}
-                      <line x1={x} y1={y} x2={lx} y2={ly}
+                      {/* Connector tick from data point out to the label, stops at the
+                          outer ring (r=275) so the line doesn't cross the label text. */}
+                      <line
+                        x1={x} y1={y}
+                        x2={Math.cos(rad) * 275}
+                        y2={Math.sin(rad) * 275}
                         stroke="var(--hud-line)" strokeWidth="0.6"
                       />
                       {/* Label */}
                       <text
-                        x={lx + (anchor === 'end' ? -6 : anchor === 'start' ? 6 : 0)}
+                        x={lx + (anchor === 'end' ? -8 : anchor === 'start' ? 8 : 0)}
                         y={ly - 2}
                         textAnchor={anchor}
                         fill="var(--text-primary)"
-                        style={{ fontFamily: 'var(--font-hero)', fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase', fontWeight: 500 }}
+                        style={{ fontFamily: 'var(--font-hero)', fontSize: 12, letterSpacing: '0.08em', textTransform: 'uppercase', fontWeight: 500 }}
                       >
-                        {method.key}
+                        {shortLabel}
                       </text>
                       <text
-                        x={lx + (anchor === 'end' ? -6 : anchor === 'start' ? 6 : 0)}
-                        y={ly + 12}
+                        x={lx + (anchor === 'end' ? -8 : anchor === 'start' ? 8 : 0)}
+                        y={ly + 14}
                         textAnchor={anchor}
                         fill="var(--text-dim)"
                         style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: 1 }}
@@ -2133,8 +2388,256 @@ export function LandingPage() {
           from { transform: scale(1.08); }
           to   { transform: scale(1.0); }
         }
+
+        /* (animated bottom rail removed — see PROPOSAL section below) */
+
         @media (prefers-reduced-motion: reduce) {
           .hero-video { animation: none !important; }
+        }
+
+        /* ───────────────────────────────────
+           Mobile breakpoints — comprehensive
+           ─────────────────────────────────── */
+
+        /* Mobile hero decoration:
+           · 4 telemetry clusters → still hidden (too dense for phones)
+           · RegistrationField → visible but masked so marks only appear in the top
+             ~22% and bottom ~22% bands (the central 56% where the title lives stays clean)
+           · Bottom decorative rail → visible
+           · Mobile-only corner stamps → enabled */
+        @media (max-width: 768px) {
+          .hero-corner { display: none !important; }
+          .hero-decor-mobile { display: block !important; }
+
+          /* Constrain ambient registration marks to safe top + bottom bands */
+          .hero-decor--ambient {
+            -webkit-mask-image: linear-gradient(
+              to bottom,
+              #000 0,
+              #000 22%,
+              transparent 22%,
+              transparent 78%,
+              #000 78%,
+              #000 100%
+            );
+            mask-image: linear-gradient(
+              to bottom,
+              #000 0,
+              #000 22%,
+              transparent 22%,
+              transparent 78%,
+              #000 78%,
+              #000 100%
+            );
+          }
+        }
+
+        /* Hero title — reduced 15% from previous floor (was 36, now ≈31) */
+        @media (max-width: 768px) {
+          [data-section="01"] h1 {
+            font-size: clamp(31px, 12vw, 68px) !important;
+            letter-spacing: 0.02em !important;
+          }
+          [data-section="01"] {
+            padding: 0 !important;
+          }
+          /* Push the global hero frame brackets down so they clear the navbar */
+          .hero-frame {
+            inset: 80px 16px 56px 16px !important;
+          }
+          /* Stack hero CTAs vertically on phones */
+          .hero-cta-row {
+            flex-direction: column !important;
+            align-items: stretch !important;
+            gap: 10px !important;
+            width: min(280px, 80vw);
+          }
+          .hero-cta-row > a {
+            justify-content: center !important;
+          }
+        }
+
+        /* Tighten section vertical padding on phones */
+        @media (max-width: 768px) {
+          [data-section]:not([data-section="01"]) {
+            padding-top: 64px !important;
+            padding-bottom: 32px !important;
+            padding-left: var(--gutter) !important;
+            padding-right: var(--gutter) !important;
+          }
+          [data-section] > div { max-width: 100% !important; }
+
+          /* Display headings — center + bring the floor way down so they fit one phone width */
+          [data-section] h2 {
+            font-size: clamp(26px, 8.5vw, 44px) !important;
+            line-height: 1.05 !important;
+            letter-spacing: 0.02em !important;
+            max-width: 100% !important;
+            text-align: center !important;
+            margin-left: auto !important;
+            margin-right: auto !important;
+          }
+          /* Center all body text and h3 sub-titles within sections */
+          [data-section] p,
+          [data-section] h3 {
+            text-align: center !important;
+            margin-left: auto !important;
+            margin-right: auto !important;
+          }
+          /* Center small mono eyebrows (not part of the structural eyebrow row) */
+          [data-section] [style*="letterSpacing: 2"][style*="textTransform"]:not(span) {
+            text-align: center !important;
+          }
+          /* Eyebrow rows that sit above each section title also center */
+          [data-section] [style*="display: flex"][style*="paddingBottom: 40"],
+          [data-section] [style*="display: flex"][style*="padding-bottom: 40"] {
+            justify-content: center !important;
+          }
+
+          /* All multi-column inner grids stack to 1 col */
+          [data-section] [style*="grid-template-columns"]:not([data-section="01"] *),
+          [data-section] [style*="gridTemplateColumns"]:not([data-section="01"] *) {
+            /* Selector above is a no-op for inline styles in React; relying on classed rules below */
+          }
+
+          /* Sec 1 — System Overview: hide right rail, center copy + CTAs */
+          .sec01-grid {
+            grid-template-columns: 1fr !important;
+            gap: 32px !important;
+            margin-top: 48px !important;
+          }
+          .sec01-rail { display: none !important; }
+          .sec01-copy {
+            text-align: center;
+          }
+          .sec01-copy p {
+            margin: 0 auto !important;
+          }
+          .sec01-cta-row {
+            justify-content: center !important;
+            flex-direction: column !important;
+            align-items: center !important;
+            gap: 10px !important;
+          }
+          .sec01-cta-row > a {
+            width: min(280px, 80vw);
+            justify-content: center !important;
+          }
+
+          /* Sec 2 — Mission Sequence timeline rebuilt for mobile:
+             · spine hidden (it was anchored at left:224px in the desktop grid)
+             · row collapses from 4-col grid to centered vertical stack
+             · order: timestamp · diamond · PHASE chip · title + description, all centered
+          */
+          .timeline-spine { display: none !important; }
+          .timeline-row {
+            grid-template-columns: 1fr !important;
+            gap: 14px !important;
+            padding: 28px 0 !important;
+            justify-items: center !important;
+            text-align: center !important;
+          }
+          .timeline-cell-ts {
+            padding-top: 0 !important;
+          }
+          .timeline-cell-node {
+            margin-top: 0 !important;
+          }
+          .timeline-cell-chip {
+            padding-top: 0 !important;
+          }
+          .timeline-cell-body {
+            margin-top: 4px;
+          }
+          .timeline-cell-body h3 {
+            font-size: clamp(22px, 7vw, 32px) !important;
+            text-align: center !important;
+          }
+          .timeline-cell-body p {
+            text-align: center !important;
+            margin-left: auto !important;
+            margin-right: auto !important;
+            max-width: 36ch !important;
+          }
+
+          /* Sec 3 — Planet Types: 4-col → 1-col cards */
+          [data-section="04"] [style*="repeat(4, 1fr)"] {
+            grid-template-columns: 1fr !important;
+            gap: 12px !important;
+          }
+          /* Sec 3 — Asymmetric heading/copy block: stack title on top, copy below */
+          .sec03-asym,
+          .sec05-asym {
+            grid-template-columns: 1fr !important;
+            gap: 32px !important;
+            align-items: start !important;
+          }
+          .sec03-heading,
+          .sec05-heading {
+            text-align: center !important;
+            order: -1;
+          }
+          .sec03-copy,
+          .sec05-copy {
+            text-align: center !important;
+          }
+          .sec03-copy p,
+          .sec05-copy p {
+            margin: 0 auto !important;
+          }
+          .sec03-keyfacts {
+            text-align: left !important;
+          }
+
+          /* Sec 4 — Habitability split layout & weighting matrix → stack */
+          [data-section="05"] > div > div[style*="grid"] {
+            grid-template-columns: 1fr !important;
+            gap: 32px !important;
+          }
+
+          /* Sec 5 — Mission Readout 4 unit panels → 1-col */
+          [data-section="06"] [style*="repeat(4, 1fr)"] {
+            grid-template-columns: 1fr !important;
+            gap: 12px !important;
+          }
+
+          /* Sec 6 — Featured Targets 3-col → 1-col */
+          [data-section="07"] [style*="repeat(3, 1fr)"] {
+            grid-template-columns: 1fr !important;
+            gap: 12px !important;
+          }
+
+          /* Sec 7 — Detection Radar split → stack */
+          [data-section="08"] > div > div[style*="grid"] {
+            grid-template-columns: 1fr !important;
+            gap: 32px !important;
+          }
+
+          /* Sec 8 — System Manifest table rows → stack */
+          [data-section="09"] [style*="grid-template-columns"] {
+            grid-template-columns: 1fr !important;
+            gap: 8px !important;
+          }
+
+          /* DataGrid leader-line rows in Explore-style sections */
+          [data-section] [style*="auto-fill"] {
+            grid-template-columns: 1fr !important;
+          }
+        }
+
+        /* Even narrower phones — squeeze a bit more (also -15%) */
+        @media (max-width: 420px) {
+          [data-section="01"] h1 {
+            font-size: clamp(26px, 11vw, 41px) !important;
+          }
+          [data-section] h2 {
+            font-size: clamp(22px, 8vw, 36px) !important;
+          }
+        }
+
+        /* Force every section to never cause horizontal scroll */
+        [data-section] {
+          overflow-x: hidden;
         }
       `}</style>
     </div>

@@ -52,6 +52,7 @@ export function SectionIndicator({ total, selector = '[data-section]' }: Props) 
   return (
     <div
       aria-hidden
+      className="section-indicator"
       style={{
         position: 'fixed',
         right: 18,
@@ -66,6 +67,11 @@ export function SectionIndicator({ total, selector = '[data-section]' }: Props) 
         pointerEvents: 'none',
       }}
     >
+      <style>{`
+        @media (max-width: 768px) {
+          .section-indicator { display: none !important; }
+        }
+      `}</style>
       <span style={{ fontSize: 11, color: 'var(--text-primary)', letterSpacing: 2 }}>
         {active.toString().padStart(2, '0')}
       </span>

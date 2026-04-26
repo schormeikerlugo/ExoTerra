@@ -116,7 +116,7 @@ export function ComparePage() {
 
       {/* Identity strip — orbs colored by lane */}
       <Section padding="48px var(--gutter) 32px">
-        <div data-reveal="up" style={{
+        <div data-reveal="up" className="compare-identity-grid" style={{
           display: 'grid',
           gridTemplateColumns: `repeat(${planets.length}, 1fr)`,
           gap: 24,
@@ -149,6 +149,25 @@ export function ComparePage() {
         <SectionHeader code="03" label="Verdict" />
         <Verdict planets={planets} />
       </Section>
+
+      <style>{`
+        @media (max-width: 768px) {
+          /* Stack identity cards vertically */
+          .compare-identity-grid {
+            grid-template-columns: 1fr !important;
+            gap: 14px !important;
+          }
+          /* Stack spec rows: label on top, then values below */
+          .compare-spec-row {
+            grid-template-columns: 1fr !important;
+            gap: 6px !important;
+            padding: 14px 0 !important;
+          }
+          .compare-spec-row > span:first-child {
+            margin-bottom: 4px;
+          }
+        }
+      `}</style>
     </div>
   )
 }
@@ -331,6 +350,7 @@ function SpecTable({ planets }: { planets: Exoplanet[] }) {
         return (
           <div
             key={metric.key}
+            className="compare-spec-row"
             style={{
               display: 'grid',
               gridTemplateColumns: `200px repeat(${planets.length}, 1fr)`,

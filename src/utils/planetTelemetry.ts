@@ -100,35 +100,40 @@ export function buildPlanetMarkers(planet: Exoplanet): Marker3D[] {
 
 /**
  * Dataset-level HUD telemetry for the hero when no single planet is featured.
- * Reads as a "mission control / archive" readout.
+ *
+ * Each cluster surfaces a DIFFERENT class of insight — no duplicates with the
+ * navbar (which shows brand/LIVE/clock) or with each other:
+ *   topLeft    — archive identity & scale
+ *   topRight   — extreme records (hottest, largest)
+ *   bottomLeft — habitability standouts (count + top scorer)
+ *   bottomRight — proximity & recency (nearest + most-recent year)
  */
 export function buildSystemTelemetry(input: {
   totalPlanets: number
   habitableZone: number
-  discoveryMethods: number
   closestPlanet: string
+  hottestName: string
+  largestName: string
+  topScorerName: string
+  topScore: number
+  latestYear: number | null
 }) {
-  const now = new Date()
-  const sync = now.toISOString().slice(0, 10).replace(/-/g, '.')
-  const uptime = now.toISOString().slice(11, 19)
   return {
     topLeft: [
-      { label: 'ARCHIVE', value: 'NASA EXO / IPAC' },
-      { label: 'NODE', value: 'EXOTERRA-01' },
-      { label: 'BUILD', value: 'v2.1.0' },
+      { label: 'ARCHIVE', value: 'NASA / IPAC' },
+      { label: 'INDEXED', value: input.totalPlanets > 0 ? `${input.totalPlanets.toLocaleString()} OBJ` : '— OBJ' },
     ],
     topRight: [
-      { label: 'SYNC', value: sync },
-      { label: 'INDEXED', value: input.totalPlanets > 0 ? `${input.totalPlanets.toLocaleString()} OBJ` : '— OBJ' },
-      { label: 'STATUS', value: 'ONLINE' },
+      { label: 'HOTTEST', value: input.hottestName || '—' },
+      { label: 'LARGEST', value: input.largestName || '—' },
     ],
     bottomLeft: [
-      { label: 'HABITABLE', value: input.habitableZone > 0 ? input.habitableZone.toLocaleString() : '—' },
-      { label: 'METHODS', value: input.discoveryMethods > 0 ? input.discoveryMethods.toString() : '—' },
+      { label: 'HABITABLE', value: input.habitableZone > 0 ? `${input.habitableZone} IN HZ` : '—' },
+      { label: 'TOP SCORE', value: input.topScorerName ? `${input.topScorerName} · ${input.topScore.toFixed(1)}` : '—' },
     ],
     bottomRight: [
       { label: 'NEAREST', value: input.closestPlanet },
-      { label: 'UPLINK', value: uptime },
+      { label: 'LATEST', value: input.latestYear ? `DISC. ${input.latestYear}` : '—' },
     ],
   }
 }
