@@ -48,7 +48,7 @@ export function PlanetCard({ planet }: { planet: Exoplanet }) {
   return (
     <Link
       to={`/explore/${encodeURIComponent(planet.pl_name)}`}
-      className="hud-card"
+      className="hud-card planet-card"
       style={{
         position: 'relative',
         display: 'flex',
@@ -57,6 +57,8 @@ export function PlanetCard({ planet }: { planet: Exoplanet }) {
         padding: '22px 26px 20px',
         textDecoration: 'none',
         color: 'inherit',
+        minWidth: 0,
+        overflow: 'hidden',
       }}
     >
       <span className="hud-card__march" />
@@ -90,7 +92,7 @@ export function PlanetCard({ planet }: { planet: Exoplanet }) {
       </div>
 
       {/* Body: big orb + name */}
-      <div style={{ display: 'flex', gap: 20, alignItems: 'center', marginBottom: 20 }}>
+      <div className="planet-card-body" style={{ display: 'flex', gap: 20, alignItems: 'center', marginBottom: 20, minWidth: 0 }}>
         <div style={{ position: 'relative', width: 120, height: 120, flexShrink: 0 }}>
           <div style={{ position: 'absolute', inset: 8, ...orbStyle(planet) }} />
           <svg
@@ -144,11 +146,12 @@ export function PlanetCard({ planet }: { planet: Exoplanet }) {
       </div>
 
       {/* Telemetry row — wider layout */}
-      <div style={{
-        display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)',
+      <div className="planet-card-tele" style={{
+        display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
         gap: 12,
         paddingTop: 14,
         borderTop: '1px dashed var(--border-hud)',
+        minWidth: 0,
       }}>
         {[
           { label: 'RADIUS', value: planet.pl_rade !== null ? planet.pl_rade.toFixed(2) : '—', unit: 'R⊕' },
@@ -170,10 +173,11 @@ export function PlanetCard({ planet }: { planet: Exoplanet }) {
       </div>
 
       {/* Footer: score gauge + label + open badge */}
-      <div style={{
+      <div className="planet-card-footer" style={{
         display: 'flex', alignItems: 'center', gap: 16,
         marginTop: 18, paddingTop: 16,
         borderTop: '1px dashed var(--border-hud)',
+        minWidth: 0,
       }}>
         <svg width={70} height={70} viewBox="-36 -36 72 72" aria-hidden>
           {Array.from({ length: 24 }).map((_, k) => (
@@ -223,18 +227,38 @@ export function PlanetCard({ planet }: { planet: Exoplanet }) {
             {score >= 60 ? 'Earth-like' : score >= 30 ? 'Partial Match' : 'Unlikely'}
           </div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <Barcode seed={`cat-${planet.pl_name}`} bars={20} height={10} />
+        <div className="planet-card-open" style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+          <span data-card-barcode>
+            <Barcode seed={`cat-${planet.pl_name}`} bars={20} height={10} />
+          </span>
           <span style={{
             fontFamily: 'var(--font-mono)', fontSize: 10,
             color: 'var(--text-primary)', letterSpacing: 2,
             padding: '5px 9px',
             border: '1px solid var(--border-hud-strong)',
+            whiteSpace: 'nowrap',
           }}>
             OPEN →
           </span>
         </div>
       </div>
+
+      <style>{`
+        @media (max-width: 600px) {
+          .planet-card { padding: 18px 18px 16px !important; }
+          .planet-card-body { gap: 14px !important; }
+          .planet-card-body > div:first-child {
+            width: 96px !important; height: 96px !important;
+          }
+          .planet-card-tele { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 10px !important; }
+          .planet-card-footer { gap: 12px !important; flex-wrap: wrap; }
+          .planet-card-footer > svg { width: 60px !important; height: 60px !important; }
+          .planet-card-open [data-card-barcode] { display: none; }
+        }
+        @media (max-width: 380px) {
+          .planet-card { padding: 16px 14px 14px !important; }
+        }
+      `}</style>
     </Link>
   )
 }

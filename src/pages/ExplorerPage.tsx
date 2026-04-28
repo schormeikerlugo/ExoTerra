@@ -1,12 +1,23 @@
 import { useParams } from 'react-router-dom'
 import { useEffect, useMemo, useState } from 'react'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { ChevronLeft, ChevronRight, ArrowLeft } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { PlanetScene } from '../components/Scene/PlanetScene'
 import { FilterPanel } from '../components/Controls/FilterPanel'
 import { PlanetList } from '../components/Controls/PlanetList'
 import { PlanetHUD } from '../components/HUD/PlanetHUD'
 import { CornerBrackets } from '../components/HUD/CornerBrackets'
+import { PageMeta } from '../components/seo/PageMeta'
+
+// Mobile breakpoint for the cockpit — both rails default to closed below this
+// width so the 3D scene gets the whole viewport on phones, and rails open as
+// full-screen overlays on demand.
+const MOBILE_BREAKPOINT_PX = 860
+
+function isMobileViewport(): boolean {
+  if (typeof window === 'undefined') return false
+  return window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT_PX}px)`).matches
+}
 
 export function ExplorerPage() {
   const { name } = useParams<{ name: string }>()
@@ -15,8 +26,32 @@ export function ExplorerPage() {
   const setSelectedPlanet = useStore((s) => s.setSelectedPlanet)
   const isLoading = useStore((s) => s.isLoading)
 
-  const [leftOpen, setLeftOpen] = useState(true)
-  const [rightOpen, setRightOpen] = useState(true)
+  // Default closed on mobile, open on desktop. Lazy initializer so it
+  // runs once at mount and doesn't fight subsequent user toggles.
+  const [leftOpen, setLeftOpen] = useState(() => !isMobileViewport())
+  const [rightOpen, setRightOpen] = useState(() => !isMobileViewport())
+  const [isMobile, setIsMobile] = useState(() => isMobileViewport())
+
+  // Track viewport class so rails can bump z-index when open on mobile.
+  // Doesn't auto-toggle the panels (would feel disorienting); just exposes
+  // the state for layering rules.
+  useEffect(() => {
+    const mq = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT_PX}px)`)
+    const onChange = () => setIsMobile(mq.matches)
+    mq.addEventListener('change', onChange)
+    return () => mq.removeEventListener('change', onChange)
+  }, [])
+
+  // When a rail opens on mobile, lock body scroll so a long planet list
+  // doesn't bleed into the page scroll.
+  useEffect(() => {
+    if (!isMobile) return
+    const open = leftOpen || rightOpen
+    if (!open) return
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => { document.body.style.overflow = prev }
+  }, [isMobile, leftOpen, rightOpen])
 
   const planet = useMemo(
     () => (name ? planets.find((p) => p.pl_name === decodeURIComponent(name)) : null),
@@ -35,46 +70,144 @@ export function ExplorerPage() {
       color: 'var(--text-primary)',
       overflow: 'hidden',
     }}>
+      <PageMeta
+        title={selectedPlanet ? `${selectedPlanet.pl_name} · Cockpit` : 'Cockpit'}
+        description="Full-screen interactive 3D cockpit. Scan exoplanets, filter by class and detection method, and inspect telemetry in real time."
+      />
       {/* ── 3D scene as full-viewport base ── */}
       <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
         <PlanetScene />
       </div>
 
-      {/* ── Outer frame brackets ── */}
+      {/* ── Outer frame brackets — top edge sits below the 56px navbar ── */}
       <div style={{
-        position: 'absolute', inset: 12, zIndex: 5,
+        position: 'absolute',
+        top: 68, right: 12, bottom: 12, left: 12,
+        zIndex: 5,
         pointerEvents: 'none',
       }}>
         <CornerBrackets size={18} thickness={1} color="var(--hud-line)" />
       </div>
 
-      {/* ── Center crosshair reticle ── */}
-      <div style={{
-        position: 'absolute', top: '50%', left: '50%',
-        transform: 'translate(-50%, -50%)',
-        zIndex: 3, pointerEvents: 'none',
-        width: 220, height: 220,
-      }}>
-        <svg viewBox="-110 -110 220 220" width="100%" height="100%" aria-hidden>
-          <circle cx="0" cy="0" r="90" fill="none"
-            stroke="var(--border-hud)" strokeWidth="0.5" strokeDasharray="3 4" />
-          {[0, 90, 180, 270].map((a) => (
-            <g key={a} transform={`rotate(${a})`}>
-              <line x1="82" y1="0" x2="100" y2="0" stroke="var(--hud-line)" strokeWidth="0.8" />
-              <line x1="100" y1="-2" x2="100" y2="2" stroke="var(--hud-line)" strokeWidth="0.8" />
-            </g>
-          ))}
-        </svg>
-      </div>
+      {/* ── Center crosshair reticle (only when locked on a target) ── */}
+      {selectedPlanet && (
+        <div style={{
+          position: 'absolute', top: '50%', left: '50%',
+          transform: 'translate(-50%, -50%)',
+          zIndex: 3, pointerEvents: 'none',
+          width: 220, height: 220,
+        }}>
+          <svg viewBox="-110 -110 220 220" width="100%" height="100%" aria-hidden>
+            <circle cx="0" cy="0" r="90" fill="none"
+              stroke="var(--border-hud)" strokeWidth="0.5" strokeDasharray="3 4" />
+            {[0, 90, 180, 270].map((a) => (
+              <g key={a} transform={`rotate(${a})`}>
+                <line x1="82" y1="0" x2="100" y2="0" stroke="var(--hud-line)" strokeWidth="0.8" />
+                <line x1="100" y1="-2" x2="100" y2="2" stroke="var(--hud-line)" strokeWidth="0.8" />
+              </g>
+            ))}
+          </svg>
+        </div>
+      )}
+
+      {/* ── Empty state (no target locked) ── */}
+      {!selectedPlanet && !isLoading && (
+        <div
+          className="hud-glass explorer-empty"
+          style={{
+            position: 'absolute', top: '50%', left: '50%',
+            transform: 'translate(-50%, -50%)',
+            zIndex: 3,
+            width: 'min(440px, calc(100vw - 64px))',
+            border: '1px solid var(--border-hud)',
+            padding: '32px 36px 30px',
+            pointerEvents: 'none',
+          }}
+        >
+          <CornerBrackets size={10} inset={-1} color="var(--hud-amber)" thickness={1} />
+
+          {/* Status header */}
+          <div style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            paddingBottom: 16, marginBottom: 18,
+            borderBottom: '1px solid var(--border-hud)',
+          }}>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+              <span style={{
+                width: 7, height: 7, borderRadius: '50%',
+                background: 'var(--hud-amber)',
+                boxShadow: '0 0 6px rgba(255,181,71,0.5)',
+                animation: 'hud-pulse 1.6s ease-in-out infinite',
+              }} />
+              <span style={{
+                fontFamily: 'var(--font-mono)', fontSize: 10,
+                color: 'var(--hud-amber)', letterSpacing: 2.5,
+                textTransform: 'uppercase', fontWeight: 600,
+              }}>
+                Standby
+              </span>
+            </span>
+            <span style={{
+              fontFamily: 'var(--font-mono)', fontSize: 9,
+              color: 'var(--text-dim)', letterSpacing: 2,
+              textTransform: 'uppercase',
+            }}>
+              No target locked
+            </span>
+          </div>
+
+          {/* Title */}
+          <h2 style={{
+            fontFamily: 'var(--font-astra)',
+            fontSize: 'clamp(24px, 3vw, 32px)',
+            fontWeight: 600,
+            lineHeight: 1.05,
+            color: 'var(--text-primary)',
+            margin: 0,
+          }}>
+            Awaiting target.
+          </h2>
+
+          {/* Body copy */}
+          <p style={{
+            fontFamily: 'var(--font-body)', fontSize: 14, lineHeight: 1.6,
+            color: 'var(--text-muted)',
+            margin: '14px 0 22px',
+          }}>
+            Select a planet from the <span style={{ color: 'var(--hud-cyan)' }}>Navigator</span> on the
+            left to begin a scan. The 3D model, telemetry strip, and HUD readouts will populate automatically.
+          </p>
+
+          {/* Arrow pointing to navigator */}
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 10,
+            paddingTop: 14,
+            borderTop: '1px dashed var(--border-hud)',
+            fontFamily: 'var(--font-mono)', fontSize: 10,
+            color: 'var(--hud-cyan)', letterSpacing: 2,
+            textTransform: 'uppercase',
+          }}>
+            <ArrowLeft
+              size={14}
+              strokeWidth={2}
+              style={{ animation: 'cockpit-empty-nudge 1.6s ease-in-out infinite' }}
+            />
+            <span>Pick from Navigator</span>
+            <span style={{ flex: 1, height: 1, background: 'var(--border-hud)' }} />
+            <span style={{ color: 'var(--text-dim)' }}>{planets.length} indexed</span>
+          </div>
+        </div>
+      )}
 
       {/* ── LEFT RAIL: filters + planet list ── */}
       <aside
-        className="hud-glass"
+        className="hud-glass explorer-rail explorer-rail--left"
+        data-open={leftOpen}
         style={{
           position: 'absolute',
           left: 24, top: 80, bottom: 56,
           width: 340,
-          zIndex: 4,
+          zIndex: isMobile && leftOpen ? 12 : 4,
           border: '1px solid var(--border-hud)',
           display: 'flex', flexDirection: 'column',
           transform: leftOpen ? 'translateX(0)' : 'translateX(calc(-100% - 24px))',
@@ -137,14 +270,20 @@ export function ExplorerPage() {
 
       {/* Left collapse toggle */}
       <button
-        onClick={() => setLeftOpen(!leftOpen)}
+        onClick={() => {
+          // On mobile, opening one rail closes the other so they can't
+          // stack and confuse the user.
+          if (isMobile && !leftOpen) setRightOpen(false)
+          setLeftOpen(!leftOpen)
+        }}
         aria-label={leftOpen ? 'Collapse filters' : 'Expand filters'}
-        className="explorer-toggle"
+        className="explorer-toggle explorer-toggle--left"
+        data-open={leftOpen}
         style={{
           position: 'absolute',
           left: leftOpen ? 370 : 24,
           top: '50%', transform: 'translateY(-50%)',
-          zIndex: 5,
+          zIndex: isMobile && leftOpen ? 13 : 5,
           width: 24, height: 52,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           background: 'rgba(0,0,0,0.55)',
@@ -161,12 +300,13 @@ export function ExplorerPage() {
 
       {/* ── RIGHT RAIL: selected planet HUD ── */}
       <aside
-        className="hud-glass"
+        className="hud-glass explorer-rail explorer-rail--right"
+        data-open={rightOpen}
         style={{
           position: 'absolute',
           right: 24, top: 80, bottom: 56,
           width: 360,
-          zIndex: 4,
+          zIndex: isMobile && rightOpen ? 12 : 4,
           border: '1px solid var(--border-hud)',
           overflowY: 'auto',
           transform: rightOpen ? 'translateX(0)' : 'translateX(calc(100% + 24px))',
@@ -179,14 +319,18 @@ export function ExplorerPage() {
 
       {/* Right collapse toggle */}
       <button
-        onClick={() => setRightOpen(!rightOpen)}
+        onClick={() => {
+          if (isMobile && !rightOpen) setLeftOpen(false)
+          setRightOpen(!rightOpen)
+        }}
         aria-label={rightOpen ? 'Collapse telemetry' : 'Expand telemetry'}
-        className="explorer-toggle"
+        className="explorer-toggle explorer-toggle--right"
+        data-open={rightOpen}
         style={{
           position: 'absolute',
           right: rightOpen ? 390 : 24,
           top: '50%', transform: 'translateY(-50%)',
-          zIndex: 5,
+          zIndex: isMobile && rightOpen ? 13 : 5,
           width: 24, height: 52,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           background: 'rgba(0,0,0,0.55)',
@@ -273,7 +417,52 @@ export function ExplorerPage() {
 
       <style>{`
         @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes cockpit-empty-nudge {
+          0%, 100% { transform: translateX(0); }
+          50%      { transform: translateX(-4px); }
+        }
         .explorer-toggle:hover { border-color: var(--border-hud-strong) !important; color: var(--hud-cyan) !important; }
+
+        @media (prefers-reduced-motion: reduce) {
+          .explorer-empty svg { animation: none !important; }
+        }
+
+        /* ── Mobile: rails become full-screen overlays ── */
+        @media (max-width: 860px) {
+          /* Rail expands to cover the visible viewport (below navbar) when open;
+             when closed it slides off-screen as before. Width is constrained
+             so we don't overflow horizontally. */
+          .explorer-rail {
+            top: 56px !important;
+            bottom: 0 !important;
+            width: min(420px, 100vw) !important;
+          }
+          .explorer-rail--left {
+            left: 0 !important;
+            border-right: 1px solid var(--border-hud);
+            border-left: none !important;
+          }
+          .explorer-rail--right {
+            right: 0 !important;
+            border-left: 1px solid var(--border-hud);
+            border-right: none !important;
+          }
+          .explorer-rail--left[data-open="false"] {
+            transform: translateX(-100%) !important;
+          }
+          .explorer-rail--right[data-open="false"] {
+            transform: translateX(100%) !important;
+          }
+
+          /* Toggles snap to the inside edge of the rail when open so they
+             remain tappable as the "close" affordance. */
+          .explorer-toggle--left[data-open="true"] {
+            left: calc(min(420px, 100vw) - 24px) !important;
+          }
+          .explorer-toggle--right[data-open="true"] {
+            right: calc(min(420px, 100vw) - 24px) !important;
+          }
+        }
       `}</style>
     </div>
   )

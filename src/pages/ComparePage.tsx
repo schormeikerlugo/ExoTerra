@@ -4,6 +4,10 @@ import { Trash2, Plus, ArrowLeft, Crown } from 'lucide-react'
 import { useComparePlanets, useStore } from '../store/useStore'
 import { CornerBrackets } from '../components/HUD/CornerBrackets'
 import { Barcode } from '../components/HUD/Barcode'
+import { RegistrationField } from '../components/HUD/RegistrationField'
+import { TrackingCode } from '../components/HUD/TrackingCode'
+import { HatchFill } from '../components/HUD/HatchFill'
+import { PageMeta } from '../components/seo/PageMeta'
 import { useReveal } from '../hooks/useReveal'
 import { getExoplanetTexture } from '../utils/textureMap'
 import { planetNameToSeed } from '../utils/planetSeed'
@@ -107,11 +111,22 @@ export function ComparePage() {
   useReveal()
 
   if (planets.length === 0) {
-    return <EmptyState />
+    return (
+      <>
+        <PageMeta
+          title="Compare"
+          description="Stack up to 4 exoplanets side-by-side and see which is most Earth-like. Pick targets from the Catalog or Explore views to begin."
+        />
+        <EmptyState />
+      </>
+    )
   }
+
+  const compareDesc = `Comparing ${planets.length} exoplanets side-by-side: ${planets.map((p) => p.pl_name).join(', ')}. Specifications, habitability radar, and verdict.`
 
   return (
     <div style={{ minHeight: '100vh', paddingTop: 56 }}>
+      <PageMeta title={`Compare · ${planets.length}`} description={compareDesc} />
       <Header count={planets.length} onClear={clearCompare} />
 
       {/* Identity strip — orbs colored by lane */}
@@ -151,6 +166,14 @@ export function ComparePage() {
       </Section>
 
       <style>{`
+        @media (max-width: 900px) {
+          /* Radar + Verdict: stack 2-col layouts vertically */
+          .compare-radar-grid,
+          .compare-verdict-grid {
+            grid-template-columns: 1fr !important;
+            gap: 32px !important;
+          }
+        }
         @media (max-width: 768px) {
           /* Stack identity cards vertically */
           .compare-identity-grid {
@@ -167,6 +190,20 @@ export function ComparePage() {
             margin-bottom: 4px;
           }
         }
+        @media (max-width: 480px) {
+          .compare-verdict-row {
+            grid-template-columns: minmax(0, 1fr) 56px !important;
+            grid-template-rows: auto auto;
+            row-gap: 6px !important;
+          }
+          .compare-verdict-row > div {
+            grid-column: 1 / -1;
+            order: 3;
+          }
+          .compare-verdict-row > span:last-child {
+            order: 2;
+          }
+        }
       `}</style>
     </div>
   )
@@ -176,21 +213,35 @@ export function ComparePage() {
 
 function Header({ count, onClear }: { count: number; onClear: () => void }) {
   return (
-    <div style={{ padding: '32px var(--gutter) 0' }}>
-      <div style={{ maxWidth: 'var(--max-w)', margin: '0 auto' }}>
+    <div style={{ padding: '32px var(--gutter) 0', position: 'relative' }}>
+      <RegistrationField seed="compare-hero" density="medium" opacity={0.4} hideMobile inset={28} />
+      <div style={{ maxWidth: 'var(--max-w)', margin: '0 auto', position: 'relative' }}>
         <div data-reveal="up" style={{
-          display: 'flex', alignItems: 'baseline', justifyContent: 'space-between',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           gap: 24, flexWrap: 'wrap',
           paddingBottom: 24,
           borderBottom: '1px solid var(--border-hud)',
         }}>
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 14 }}>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
             <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-primary)', letterSpacing: 3 }}>
               COMPARE
             </span>
             <span style={{ width: 32, height: 1, background: 'var(--hud-line)' }} />
             <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-muted)', letterSpacing: 2.5, textTransform: 'uppercase' }}>
               {count} {count === 1 ? 'Target' : 'Targets'} · Side by Side
+            </span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginLeft: 4 }}>
+              <span style={{
+                width: 6, height: 6, borderRadius: '50%',
+                background: 'var(--hud-cyan)',
+                boxShadow: '0 0 6px var(--hud-cyan-glow)',
+                animation: 'hud-pulse 1.8s ease-in-out infinite',
+              }} />
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--hud-cyan)', letterSpacing: 2 }}>SIDE-BY-SIDE</span>
+            </span>
+            <span className="page-eyebrow-tail" style={{ marginLeft: 6 }}>
+              <span data-tail-hatch><HatchFill style={{ width: 16, height: 7 }} opacity={0.4} /></span>
+              <TrackingCode seed={`compare-${count}`} variant="rec" />
             </span>
           </div>
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
@@ -433,7 +484,7 @@ function RadarChart({ planets }: { planets: Exoplanet[] }) {
   })
 
   return (
-    <div data-reveal="up" data-d="2" style={{
+    <div data-reveal="up" data-d="2" className="compare-radar-grid" style={{
       display: 'grid',
       gridTemplateColumns: 'minmax(0, 1.4fr) minmax(0, 1fr)',
       gap: 48,
@@ -591,7 +642,7 @@ function Verdict({ planets }: { planets: Exoplanet[] }) {
   const winnerColor = PLANET_COLORS[overallWinIdx]
 
   return (
-    <div data-reveal="up" data-d="2" style={{
+    <div data-reveal="up" data-d="2" className="compare-verdict-grid" style={{
       display: 'grid',
       gridTemplateColumns: 'minmax(0, 1.2fr) minmax(0, 1fr)',
       gap: 48,
@@ -646,7 +697,7 @@ function Verdict({ planets }: { planets: Exoplanet[] }) {
             const w = wins[idx]
             const ratio = evaluable > 0 ? w / evaluable : 0
             return (
-              <div key={p.id} style={{ display: 'grid', gridTemplateColumns: '120px 1fr 60px', gap: 12, alignItems: 'center' }}>
+              <div key={p.id} className="compare-verdict-row" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 120px) minmax(80px, 1fr) 60px', gap: 12, alignItems: 'center' }}>
                 <span style={{
                   fontFamily: 'var(--font-mono)', fontSize: 11,
                   color: c.stroke, letterSpacing: 1, textTransform: 'uppercase',

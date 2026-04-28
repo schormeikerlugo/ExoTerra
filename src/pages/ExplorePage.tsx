@@ -8,6 +8,9 @@ import { PlanetCard } from '../components/Controls/PlanetCard'
 import { CornerBrackets } from '../components/HUD/CornerBrackets'
 import { Barcode } from '../components/HUD/Barcode'
 import { ComparePin } from '../components/HUD/ComparePin'
+import { StateScreen } from '../components/HUD/StateScreen'
+import { MicroSection } from '../components/HUD/MicroSection'
+import { PageMeta } from '../components/seo/PageMeta'
 import { useReveal } from '../hooks/useReveal'
 import { generatePlanetDescription } from '../utils/planetDescriptions'
 import { formatNumber, formatTemperature, getPlanetScale } from '../utils/planetVisuals'
@@ -70,14 +73,28 @@ export function ExplorePage() {
   const planetScale = useTransform(scrollY, [0, 900], [1, 1.08])
 
   if (!planet) {
+    if (planets.length === 0) {
+      return (
+        <StateScreen
+          variant="loading"
+          code="LINK_INIT"
+          title="Linking archive."
+          message="Streaming the latest catalog from the upstream mirror. Hold position — the readout will populate as soon as the first packet arrives."
+        />
+      )
+    }
+    const requested = name ? decodeURIComponent(name) : ''
     return (
-      <div style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        height: '100vh', color: 'var(--text-muted)',
-        fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: 2, textTransform: 'uppercase',
-      }}>
-        {planets.length === 0 ? 'Loading archive…' : 'Target not found'}
-      </div>
+      <StateScreen
+        variant="not-found"
+        code="ERR_404"
+        title="Target not found."
+        message={requested
+          ? <>No archive entry matches <span style={{ color: 'var(--hud-cyan)' }}>"{requested}"</span>. The name may have been retired or the link mistyped.</>
+          : 'No exoplanet matched that identifier.'}
+        primaryAction={{ label: 'Browse catalog', to: '/catalog' }}
+        secondaryAction={{ label: 'Return to base', to: '/' }}
+      />
     )
   }
 
@@ -87,18 +104,57 @@ export function ExplorePage() {
   const total = tourSet.length
 
   const score = planet.habitability_score
+  // Tier + archive-relative percentile context for the score number.
+  // Tier maps the absolute score to a human label; percentile shows where
+  // this planet ranks against every confirmed entry (e.g. "top 12%").
+  const scoreTier = score >= 60 ? 'Earth-like' : score >= 30 ? 'Partial match' : 'Unlikely'
+  const tierColor = score >= 60 ? 'var(--hud-cyan)' : score >= 30 ? 'var(--hud-amber)' : 'var(--hud-red)'
+  const better = planets.filter((p) => p.habitability_score > score).length
+  const percentile = planets.length > 0 ? Math.max(1, Math.round((better / planets.length) * 100)) : null
+  // Filled segments (10 total, each = 10 score pts)
+  const filledSegments = Math.max(0, Math.min(10, Math.round(score / 10)))
   const description = generatePlanetDescription(planet)
   const systemPlanets = planets.filter((p) => p.hostname === planet.hostname && p.id !== planet.id)
-  const tags = [
-    planet.in_habitable_zone && 'Habitable Zone',
-    planet.has_atmosphere_likely && 'Atmosphere Likely',
-    planet.visual_has_rings && 'Ring System',
-    planet.visual_has_clouds && 'Cloud Cover',
-    planet.visual_num_moons > 0 && `${planet.visual_num_moons} Moon${planet.visual_num_moons > 1 ? 's' : ''}`,
+
+  // Physical-property quick stats — descriptors for instant context.
+  // Each stat returns null when the underlying value is missing so the
+  // rail collapses gracefully rather than rendering "—".
+  const physicalStats: { label: string; value: string; descriptor: string }[] = []
+  if (planet.pl_eqt !== null) {
+    const t = planet.pl_eqt
+    const desc = t < 200 ? 'Frigid' : t < 280 ? 'Cool' : t < 330 ? 'Temperate' : t < 500 ? 'Warm' : t < 1000 ? 'Hot' : 'Scorching'
+    physicalStats.push({ label: 'Temp', value: `${t.toFixed(0)} K`, descriptor: desc })
+  }
+  if (planet.pl_rade !== null) {
+    const r = planet.pl_rade
+    const desc = r < 0.8 ? 'Smaller than Earth' : r < 1.5 ? 'Earth-sized' : r < 2.5 ? 'Super-Earth' : r < 6 ? 'Neptune-sized' : 'Gas giant'
+    physicalStats.push({ label: 'Radius', value: `${r.toFixed(2)} R⊕`, descriptor: desc })
+  }
+  if (planet.pl_masse !== null) {
+    const m = planet.pl_masse
+    const desc = m < 0.5 ? 'Light' : m < 2 ? 'Earth-mass' : m < 10 ? 'Super-Earth mass' : m < 50 ? 'Neptune-mass' : 'Jovian-mass'
+    physicalStats.push({ label: 'Mass', value: `${m.toFixed(2)} M⊕`, descriptor: desc })
+  }
+
+  // Compact features line — drop "Habitable Zone" since the score tier
+  // already encodes it; show only flags that aren't visible elsewhere.
+  const features = [
+    planet.has_atmosphere_likely && 'Atmosphere likely',
+    planet.visual_has_clouds && 'Cloud cover',
+    planet.visual_has_rings && 'Ring system',
+    planet.visual_num_moons > 0 && `${planet.visual_num_moons} moon${planet.visual_num_moons > 1 ? 's' : ''}`,
   ].filter(Boolean) as string[]
+
+  const tierShort = score >= 60 ? 'Earth-like candidate' : score >= 30 ? 'partial habitability match' : 'unlikely habitability match'
+  const metaDesc = [
+    `${planet.pl_name} — a ${TYPE_LABEL[planet.planet_type] ?? 'planet'} orbiting ${planet.hostname}`,
+    planet.sy_dist ? `${planet.sy_dist.toFixed(1)} parsecs from Earth` : null,
+    `habitability score ${score.toFixed(1)}/100 (${tierShort})`,
+  ].filter(Boolean).join(' · ') + '.'
 
   return (
     <div className="explore-shell" style={{ position: 'relative', minHeight: '100vh', backgroundColor: 'transparent', paddingTop: 56 }}>
+      <PageMeta title={planet.pl_name} description={metaDesc} />
 
       {/* ═══════════════════════════════════════════════════════════
           FIXED 3D STAGE — stays put across the entire page scroll;
@@ -206,82 +262,95 @@ export function ExplorePage() {
               {planet.pl_name}
             </motion.h1>
 
-            {/* Subtitle */}
-            <motion.p
+            {/* ─── Archive data section ─── */}
+            <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, delay: 0.5, ease: [0.22, 1, 0.36, 1] }}
+              style={{ marginTop: 32 }}
+            >
+              <MicroSection label="Archive data" align="left" style={{ marginBottom: 14 }} />
+            </motion.div>
+
+            {/* Metadata strip — host, distance, discovery year & method
+                presented as labeled telemetry cells. The host name links to
+                its system page (the "→" is a clickable affordance). */}
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, delay: 0.55, ease: [0.22, 1, 0.36, 1] }}
+              className="explore-meta-strip"
               style={{
-                fontFamily: 'var(--font-body)', fontSize: 16,
-                color: 'var(--text-muted)', lineHeight: 1.6,
-                marginTop: 28,
-                maxWidth: '46ch',
+                display: 'grid',
+                gridAutoFlow: 'column',
+                gridAutoColumns: 'max-content',
+                gap: 24,
+                width: 'fit-content',
+                maxWidth: '100%',
+                overflowX: 'auto',
               }}
             >
-              Orbiting <span style={{ color: 'var(--text-primary)' }}>{planet.hostname}</span>
-              {planet.sy_dist ? ` · ${planet.sy_dist.toFixed(1)} parsecs (${(planet.sy_dist * 3.26).toFixed(1)} ly) away` : ''}
-              {planet.disc_year ? ` · Discovered ${planet.disc_year}` : ''}
-            </motion.p>
+              <MetaCell label="Host" first>
+                <Link
+                  to={`/system/${encodeURIComponent(planet.hostname)}`}
+                  className="explore-meta-host"
+                  title={`Open ${planet.hostname} system overview`}
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 6,
+                    color: 'var(--text-primary)', textDecoration: 'none',
+                    transition: 'color 180ms',
+                  }}
+                >
+                  <span style={{ whiteSpace: 'nowrap' }}>{planet.hostname}</span>
+                  <ChevronRight size={11} strokeWidth={2} style={{ color: 'var(--text-dim)', transition: 'color 180ms, transform 180ms' }} />
+                </Link>
+              </MetaCell>
 
-            {/* Tags */}
-            {tags.length > 0 && (
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.8, delay: 0.7, ease: [0.22, 1, 0.36, 1] }}
-                style={{
-                  display: 'flex', flexWrap: 'wrap', gap: 8,
-                  marginTop: 28,
-                }}
-              >
-                {tags.map((label) => {
-                  const accent = label === 'Habitable Zone'
-                  return (
-                    <span key={label} style={{
-                      display: 'inline-flex', alignItems: 'center', gap: 6,
-                      padding: '6px 12px',
-                      border: `1px solid ${accent ? 'var(--hud-cyan)' : 'var(--border-hud)'}`,
-                      background: accent ? 'var(--hud-cyan-glow)' : 'rgba(255,255,255,0.025)',
-                      color: accent ? 'var(--hud-cyan)' : 'var(--text-primary)',
-                      fontFamily: 'var(--font-mono)', fontSize: 10,
-                      letterSpacing: 1.5, textTransform: 'uppercase',
-                    }}>
-                      <span style={{
-                        width: 5, height: 5,
-                        background: accent ? 'var(--hud-cyan)' : 'var(--border-hud-strong)',
-                        boxShadow: accent ? '0 0 5px var(--hud-cyan)' : 'none',
-                      }} />
-                      {label}
-                    </span>
-                  )
-                })}
-              </motion.div>
-            )}
+              {planet.sy_dist !== null && (
+                <MetaCell label="Distance">
+                  <span style={{ whiteSpace: 'nowrap' }}>
+                    <span style={{ color: 'var(--text-primary)' }}>{planet.sy_dist.toFixed(1)}</span>
+                    <span style={{ color: 'var(--text-dim)', marginLeft: 4 }}>pc</span>
+                    <span style={{ color: 'var(--text-dim)', marginInline: 6 }}>/</span>
+                    <span style={{ color: 'var(--text-muted)' }}>{(planet.sy_dist * 3.26).toFixed(1)}</span>
+                    <span style={{ color: 'var(--text-dim)', marginLeft: 4 }}>ly</span>
+                  </span>
+                </MetaCell>
+              )}
 
-            {/* Score + CTAs */}
+              {planet.disc_year !== null && (
+                <MetaCell label="Discovered">
+                  <span style={{ color: 'var(--text-primary)' }}>{planet.disc_year}</span>
+                </MetaCell>
+              )}
+
+              {planet.discoverymethod && (
+                <MetaCell label="Method">
+                  <span style={{ color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>
+                    {planet.discoverymethod}
+                  </span>
+                </MetaCell>
+              )}
+            </motion.div>
+
+            {/* ─── Habitability section ─── */}
+            <MicroSection label="Habitability" align="left" style={{ marginTop: 36, marginBottom: 18 }} />
+
+            {/* Score + CTAs (stacked vertically) */}
             <motion.div
               initial={{ opacity: 0, y: 14 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.7, delay: 0.9, ease: [0.22, 1, 0.36, 1] }}
               style={{
-                display: 'flex', alignItems: 'center', gap: 24,
-                marginTop: 40,
-                flexWrap: 'wrap',
+                display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 24,
               }}
             >
-              <div>
-                <div style={{
-                  fontFamily: 'var(--font-mono)', fontSize: 10,
-                  color: 'var(--text-muted)', letterSpacing: 2.5, textTransform: 'uppercase',
-                  marginBottom: 6,
-                }}>
-                  Habitability
-                </div>
+              <div style={{ width: 'min(560px, 100%)' }}>
                 <div style={{
                   display: 'flex', alignItems: 'baseline', gap: 8,
                   fontFamily: 'var(--font-astra)',
-                  color: 'var(--hud-cyan)',
-                  textShadow: '0 0 24px var(--hud-cyan-glow)',
+                  color: tierColor,
+                  textShadow: score >= 30 ? `0 0 24px ${tierColor === 'var(--hud-cyan)' ? 'var(--hud-cyan-glow)' : 'rgba(255,181,71,0.28)'}` : 'none',
                 }}>
                   <span style={{
                     fontSize: 'clamp(48px, 6vw, 80px)',
@@ -298,9 +367,139 @@ export function ExplorePage() {
                     / 100
                   </span>
                 </div>
+
+                {/* Segmented progress bar — 10 segments, each = 10 score pts */}
+                <div
+                  aria-hidden
+                  style={{
+                    display: 'flex', gap: 3,
+                    marginTop: 14,
+                    width: '100%',
+                  }}
+                >
+                  {Array.from({ length: 10 }).map((_, i) => {
+                    const filled = i < filledSegments
+                    return (
+                      <span
+                        key={i}
+                        style={{
+                          flex: 1,
+                          height: 6,
+                          background: filled ? tierColor : 'rgba(255,255,255,0.06)',
+                          boxShadow: filled
+                            ? `0 0 6px ${tierColor === 'var(--hud-cyan)' ? 'var(--hud-cyan-glow)' : 'rgba(255,181,71,0.28)'}`
+                            : 'inset 0 0 0 1px var(--border-hud)',
+                          transition: 'background 220ms, box-shadow 220ms',
+                        }}
+                      />
+                    )
+                  })}
+                </div>
+
+                {/* Tier label + percentile context */}
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  marginTop: 12, flexWrap: 'wrap',
+                }}>
+                  <span style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 6,
+                    fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 600,
+                    color: tierColor, letterSpacing: 2, textTransform: 'uppercase',
+                  }}>
+                    <span style={{
+                      width: 5, height: 5,
+                      background: tierColor,
+                      boxShadow: `0 0 5px ${tierColor === 'var(--hud-cyan)' ? 'var(--hud-cyan-glow)' : 'rgba(255,181,71,0.4)'}`,
+                    }} />
+                    {scoreTier}
+                  </span>
+                  {percentile !== null && (
+                    <>
+                      <span style={{ width: 18, height: 1, background: 'var(--border-hud)' }} />
+                      <span style={{
+                        fontFamily: 'var(--font-mono)', fontSize: 10,
+                        color: 'var(--text-muted)', letterSpacing: 2,
+                        textTransform: 'uppercase',
+                      }}>
+                        Top {percentile}% of archive
+                      </span>
+                    </>
+                  )}
+                </div>
               </div>
 
-              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+              {/* ─── Physical specs section ─── */}
+              {(physicalStats.length > 0 || features.length > 0) && (
+                <>
+                  <MicroSection label="Physical" align="left" style={{ marginTop: 8, marginBottom: 14, width: 'min(560px, 100%)' }} />
+
+                  <div className="explore-quick-stats" style={{
+                    display: 'grid',
+                    gridTemplateColumns: `repeat(${physicalStats.length + (features.length > 0 ? 1 : 0)}, minmax(0, 1fr))`,
+                    gap: 24,
+                    width: 'min(560px, 100%)',
+                  }}>
+                    {physicalStats.map((stat, i) => (
+                      <div key={stat.label} style={{
+                        display: 'flex', flexDirection: 'column', gap: 5,
+                        paddingLeft: i === 0 ? 0 : 14,
+                        borderLeft: i === 0 ? 'none' : '1px solid var(--border-hud)',
+                        minWidth: 0,
+                      }}>
+                        <span style={{
+                          fontFamily: 'var(--font-mono)', fontSize: 9,
+                          color: 'var(--text-dim)', letterSpacing: 2,
+                          textTransform: 'uppercase',
+                        }}>
+                          {stat.label}
+                        </span>
+                        <span style={{
+                          fontFamily: 'var(--font-mono)', fontSize: 22, fontWeight: 500,
+                          color: 'var(--text-primary)', letterSpacing: '-0.5px',
+                          lineHeight: 1.1,
+                          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                        }}>
+                          {stat.value}
+                        </span>
+                        <span style={{
+                          fontFamily: 'var(--font-mono)', fontSize: 9,
+                          color: 'var(--text-muted)', letterSpacing: 1.5,
+                          textTransform: 'uppercase',
+                          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                        }}>
+                          {stat.descriptor}
+                        </span>
+                      </div>
+                    ))}
+                    {features.length > 0 && (
+                      <div style={{
+                        display: 'flex', flexDirection: 'column', gap: 5,
+                        paddingLeft: physicalStats.length > 0 ? 14 : 0,
+                        borderLeft: physicalStats.length > 0 ? '1px solid var(--border-hud)' : 'none',
+                        minWidth: 0,
+                      }}>
+                        <span style={{
+                          fontFamily: 'var(--font-mono)', fontSize: 9,
+                          color: 'var(--text-dim)', letterSpacing: 2,
+                          textTransform: 'uppercase',
+                        }}>
+                          Features
+                        </span>
+                        <span style={{
+                          fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 500,
+                          color: 'var(--text-primary)',
+                          letterSpacing: '0.4px',
+                          lineHeight: 1.4,
+                        }}>
+                          {features.join(' · ')}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 8 }}>
                 <a href="#briefing" className="hud-cta-primary" style={{
                   display: 'inline-flex', alignItems: 'center', gap: 10,
                   padding: '14px 26px',
@@ -312,16 +511,22 @@ export function ExplorePage() {
                   <ChevronRight size={13} strokeWidth={2.5} />
                   Read Profile
                 </a>
-                <Link to={`/explorer/${encodeURIComponent(planet.pl_name)}`} className="hud-cta-secondary" style={{
-                  display: 'inline-flex', alignItems: 'center', gap: 10,
-                  padding: '14px 26px',
-                  background: 'transparent', color: 'var(--hud-cyan)',
-                  fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 500,
-                  letterSpacing: 2, textTransform: 'uppercase', textDecoration: 'none',
-                  border: '1px solid var(--border-hud-strong)',
-                  clipPath: 'polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px)',
-                }}>
-                  [ 3D Explorer ]
+                <Link
+                  to={`/explorer/${encodeURIComponent(planet.pl_name)}`}
+                  className="hud-cta-secondary"
+                  title="Open the full-screen 3D cockpit — interactive scan with filter rail and HUD telemetry"
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 10,
+                    padding: '14px 26px',
+                    background: 'transparent', color: 'var(--hud-cyan)',
+                    fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 500,
+                    letterSpacing: 2, textTransform: 'uppercase', textDecoration: 'none',
+                    border: '1px solid var(--border-hud-strong)',
+                    clipPath: 'polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px)',
+                  }}
+                >
+                  Open in cockpit
+                  <ChevronRight size={13} strokeWidth={2.5} />
                 </Link>
                 <ComparePin planet={planet} variant="label" />
               </div>
@@ -573,6 +778,39 @@ export function ExplorePage() {
       <BrowseSection currentName={planet.pl_name} />
 
       <div style={{ height: 80 }} />
+    </div>
+  )
+}
+
+/* ─────────── Hero metadata cell ─────────── */
+function MetaCell({ label, children, first }: {
+  label: string
+  children: React.ReactNode
+  first?: boolean
+}) {
+  return (
+    <div
+      className="explore-meta-cell"
+      style={{
+        display: 'flex', flexDirection: 'column', gap: 4,
+        paddingLeft: first ? 0 : 24,
+        borderLeft: first ? 'none' : '1px solid var(--border-hud)',
+        minWidth: 0,
+      }}
+    >
+      <span style={{
+        fontFamily: 'var(--font-mono)', fontSize: 9,
+        color: 'var(--text-dim)', letterSpacing: 2,
+        textTransform: 'uppercase',
+      }}>
+        {label}
+      </span>
+      <span style={{
+        fontFamily: 'var(--font-mono)', fontSize: 13, fontWeight: 500,
+        letterSpacing: '0.4px', lineHeight: 1.2,
+      }}>
+        {children}
+      </span>
     </div>
   )
 }
@@ -948,6 +1186,16 @@ function BrowseSection({ currentName }: { currentName: string }) {
             height: 50vh;
             background: linear-gradient(to top, #000 0%, rgba(0,0,0,0.5) 60%, transparent 100%);
           }
+          /* Hero: stop centering vertically — push text below the 3D banner */
+          .explore-hero {
+            min-height: auto !important;
+            align-items: flex-start !important;
+            padding-top: calc(50vh - 32px) !important;
+            padding-bottom: 64px !important;
+          }
+          .explore-hero > div > div {
+            max-width: 100% !important;
+          }
           .explore-section > div {
             max-width: 100% !important;
           }
@@ -958,6 +1206,46 @@ function BrowseSection({ currentName }: { currentName: string }) {
         @media (max-width: 700px) {
           .explore-browse-section .explore-browse-grid {
             grid-template-columns: 1fr !important;
+          }
+          .explore-quick-stats {
+            grid-template-columns: 1fr 1fr !important;
+            gap: 14px !important;
+          }
+        }
+        @media (max-width: 420px) {
+          .explore-quick-stats {
+            grid-template-columns: 1fr !important;
+          }
+        }
+
+        /* Hero metadata strip */
+        .explore-meta-host:hover { color: var(--hud-cyan) !important; }
+        .explore-meta-host:hover svg { color: var(--hud-cyan) !important; transform: translateX(2px); }
+        .explore-meta-strip::-webkit-scrollbar { height: 0; }
+
+        @media (max-width: 700px) {
+          .explore-meta-strip {
+            grid-auto-flow: row !important;
+            grid-auto-columns: auto !important;
+            grid-template-columns: 1fr 1fr !important;
+            gap: 14px 18px !important;
+            width: 100% !important;
+          }
+          .explore-meta-strip .explore-meta-cell:nth-child(odd) {
+            border-left: none !important;
+            padding-left: 0 !important;
+          }
+          .explore-meta-strip .explore-meta-cell:nth-child(even) {
+            padding-left: 14px !important;
+          }
+        }
+        @media (max-width: 380px) {
+          .explore-meta-strip {
+            grid-template-columns: 1fr !important;
+          }
+          .explore-meta-strip .explore-meta-cell {
+            border-left: none !important;
+            padding-left: 0 !important;
           }
         }
       `}</style>

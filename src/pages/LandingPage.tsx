@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom'
 import { motion } from 'motion/react'
 import { useStore } from '../store/useStore'
 import { CornerBrackets } from '../components/HUD/CornerBrackets'
-import { TelemetryRow, TelemetryLine } from '../components/HUD/Telemetry'
+import { TelemetryRow } from '../components/HUD/Telemetry'
 import { HUDPanel } from '../components/HUD/HUDPanel'
 import { Barcode } from '../components/HUD/Barcode'
 import { Sparkline } from '../components/HUD/Sparkline'
@@ -12,6 +12,7 @@ import { SectionIndicator } from '../components/HUD/SectionIndicator'
 import { RegistrationField } from '../components/HUD/RegistrationField'
 import { HatchFill } from '../components/HUD/HatchFill'
 import { TrackingCode } from '../components/HUD/TrackingCode'
+import { PageMeta } from '../components/seo/PageMeta'
 
 import { buildSystemTelemetry } from '../utils/planetTelemetry'
 import { getExoplanetTexture } from '../utils/textureMap'
@@ -246,6 +247,11 @@ export function LandingPage() {
 
   return (
     <div style={{ minHeight: '100vh', backgroundColor: 'transparent' }}>
+      <PageMeta
+        bare
+        title="ExoTerra · Exoplanet Mission Control"
+        description="An open archive of confirmed exoplanets. Explore 6,000+ worlds in interactive 3D, filter by class and detection method, and stack candidates side-by-side."
+      />
 
       <SectionIndicator total={9} />
 
@@ -1049,15 +1055,21 @@ export function LandingPage() {
               const code = `TYPE_${(i + 1).toString().padStart(2, '0')}`
               const Icon = item.icon
               return (
-                <div
+                <Link
                   key={item.key}
+                  to={`/catalog?type=${encodeURIComponent(item.key)}`}
                   data-reveal="up"
                   data-d={Math.min(i + 1, 8).toString()}
-                  className="hud-card"
+                  className="hud-card sec03-card"
+                  aria-label={`Filter catalog by ${item.name}`}
                   style={{
                     position: 'relative',
                     border: '1px solid var(--border-hud)',
                     padding: '20px 20px 18px',
+                    textDecoration: 'none',
+                    color: 'inherit',
+                    display: 'block',
+                    cursor: 'pointer',
                   }}
                 >
                   <CornerBrackets size={8} inset={-1} color="var(--hud-line)" thickness={1} />
@@ -1136,7 +1148,13 @@ export function LandingPage() {
                       </div>
                     ))}
                   </div>
-                </div>
+
+                  {/* Hover affordance: filter CTA */}
+                  <span className="sec03-card-cta">
+                    <span>Filter catalog</span>
+                    <ChevronRight size={11} />
+                  </span>
+                </Link>
               )
             })}
           </div>
@@ -2326,67 +2344,32 @@ export function LandingPage() {
         </div>
       </section>
 
-      {/* ─── Footer (telemetry line) ─── */}
-      <footer style={{ padding: '48px var(--gutter) 40px', backgroundColor: 'transparent' }}>
-        <div style={{ maxWidth: 'var(--max-w)', margin: '0 auto' }}>
-          <div style={{
-            borderTop: '1px solid var(--border-hud)',
-            paddingTop: 24,
-            display: 'flex',
-            flexWrap: 'wrap',
-            gap: 20,
-            alignItems: 'center',
-            justifyContent: 'space-between',
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: 1.5, color: 'var(--text-primary)', textTransform: 'uppercase' }}>
-                <span style={{
-                  width: 6, height: 6, borderRadius: '50%',
-                  background: 'var(--hud-green)',
-                  boxShadow: '0 0 6px var(--hud-green)',
-                  animation: 'hud-pulse 1.8s ease-in-out infinite',
-                }} />
-                LIVE
-              </span>
-              <span style={{ width: 1, height: 14, background: 'var(--border-hud)' }} />
-              <span style={{ fontFamily: 'var(--font-hero)', fontSize: 12, letterSpacing: '0.14em', color: 'var(--text-primary)' }}>
-                EXOTERRA
-              </span>
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--text-dim)', letterSpacing: 1.5 }}>
-                v2.1.0
-              </span>
-            </div>
-
-            <TelemetryLine
-              items={[
-                { label: 'BUILD', value: '4A1C2F3' },
-                { label: 'UTC',   value: new Date().toISOString().slice(0, 10).replace(/-/g, '.') + ' · ' + new Date().toISOString().slice(11, 19) },
-                { label: 'NODE',  value: 'EXOTERRA-01' },
-                { label: 'COORD', value: '42.36°N · 71.06°W' },
-              ]}
-            />
-          </div>
-
-          <div style={{
-            marginTop: 20,
-            fontFamily: 'var(--font-mono)', fontSize: 10,
-            color: 'var(--text-dim)', letterSpacing: 1.5,
-            textTransform: 'uppercase',
-            display: 'flex',
-            justifyContent: 'space-between',
-            flexWrap: 'wrap',
-            gap: 12,
-          }}>
-            <span>Data sourced from NASA Exoplanet Archive · Built with React · Three.js · Supabase</span>
-            <span>EOF · END OF TRANSMISSION</span>
-          </div>
-        </div>
-      </footer>
-
       <style>{`
         @keyframes hero-slow-zoom {
           from { transform: scale(1.08); }
           to   { transform: scale(1.0); }
+        }
+
+        /* Sec 3 — Planet Types card · clickable affordance */
+        .sec03-card { transition: border-color 240ms, transform 240ms; }
+        .sec03-card:hover {
+          border-color: var(--hud-cyan-50) !important;
+          transform: translateY(-2px);
+        }
+        .sec03-card-cta {
+          margin-top: 14px;
+          padding-top: 12px;
+          border-top: 1px dashed var(--border-hud);
+          display: flex; align-items: center; justify-content: space-between;
+          font-family: var(--font-mono); font-size: 9px;
+          letter-spacing: 1.6px; text-transform: uppercase;
+          color: var(--text-dim);
+          opacity: 0.6;
+          transition: color 220ms, opacity 220ms;
+        }
+        .sec03-card:hover .sec03-card-cta {
+          color: var(--hud-cyan);
+          opacity: 1;
         }
 
         /* (animated bottom rail removed — see PROPOSAL section below) */

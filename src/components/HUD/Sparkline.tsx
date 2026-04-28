@@ -37,17 +37,23 @@ export function Sparkline({
     return state / 0xffffffff
   }
 
-  const W = 100
-  const H = 40
-  const padY = 4
+  // Use a wider/flatter viewBox aspect ratio so when stretched into a
+  // narrow horizontal strip via preserveAspectRatio="none" the curve
+  // doesn't visually flatten into an almost-horizontal line.
+  const W = 200
+  const H = 30
+  const padY = 3
   const stepX = W / (points - 1)
 
-  // Generate a smoothed random walk for a believable data curve
+  // Random walk with stronger per-step amplitude so the curve is visibly
+  // dynamic at small heights. We bias each step slightly toward the
+  // centre line to keep it from clipping at the edges.
   let y = 0.5
   const ys: number[] = []
   for (let i = 0; i < points; i++) {
-    y += (rng() - 0.5) * 0.35
-    y = Math.max(0.05, Math.min(0.95, y))
+    const drift = (0.5 - y) * 0.12 // pull toward middle
+    y += (rng() - 0.5) * 0.55 + drift
+    y = Math.max(0.08, Math.min(0.92, y))
     ys.push(y)
   }
 
@@ -68,7 +74,16 @@ export function Sparkline({
       style={{ width, height, display: 'block', ...style }}
     >
       <path className="sparkline-fill" d={fillD} fill={color} style={{ ['--fill-opacity' as string]: fillOpacity }} />
-      <path className="sparkline-path" d={lineD} fill="none" stroke={color} strokeWidth={0.6} vectorEffect="non-scaling-stroke" />
+      <path
+        className="sparkline-path"
+        d={lineD}
+        fill="none"
+        stroke={color}
+        strokeWidth={1.1}
+        strokeLinejoin="round"
+        strokeLinecap="round"
+        vectorEffect="non-scaling-stroke"
+      />
     </svg>
   )
 }

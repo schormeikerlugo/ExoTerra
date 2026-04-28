@@ -56,6 +56,7 @@ export function Navbar() {
   }
 
   return (
+    <>
     <nav
       data-scrolled={scrolled}
       data-hidden={hidden}
@@ -70,12 +71,12 @@ export function Navbar() {
           'transform 420ms cubic-bezier(0.22,1,0.36,1),' +
           ' background 280ms ease, backdrop-filter 280ms ease,' +
           ' border-color 280ms ease, box-shadow 280ms ease',
-        borderBottom: scrolled
+        borderBottom: (scrolled || mobileOpen)
           ? '1px solid var(--border-hud)'
           : '1px solid transparent',
-        background: scrolled ? 'rgba(5, 7, 13, 0.62)' : 'transparent',
-        backdropFilter: scrolled ? 'blur(18px) saturate(1.2)' : 'none',
-        WebkitBackdropFilter: scrolled ? 'blur(18px) saturate(1.2)' : 'none',
+        background: (scrolled || mobileOpen) ? 'rgba(5, 7, 13, 0.62)' : 'transparent',
+        backdropFilter: (scrolled || mobileOpen) ? 'blur(18px) saturate(1.2)' : 'none',
+        WebkitBackdropFilter: (scrolled || mobileOpen) ? 'blur(18px) saturate(1.2)' : 'none',
         boxShadow: scrolled
           ? '0 12px 32px -16px rgba(0,0,0,0.55), inset 0 -1px 0 rgba(255,255,255,0.04)'
           : 'none',
@@ -161,6 +162,7 @@ export function Navbar() {
               <Link
                 key={to}
                 to={to}
+                aria-current={active ? 'page' : undefined}
                 style={{
                   display: 'inline-flex',
                   alignItems: 'baseline',
@@ -302,63 +304,6 @@ export function Navbar() {
         </span>
       </div>
 
-      {/* ─── Mobile drawer ─── */}
-      <div
-        className="navbar-drawer"
-        data-open={mobileOpen}
-        style={{
-          position: 'fixed',
-          top: 56, left: 0, right: 0, bottom: 0,
-          zIndex: 49,
-          background: 'rgba(0,0,0,0.92)',
-          backdropFilter: 'blur(18px) saturate(1.2)',
-          WebkitBackdropFilter: 'blur(18px) saturate(1.2)',
-          borderTop: '1px solid var(--border-hud)',
-          opacity: mobileOpen ? 1 : 0,
-          pointerEvents: mobileOpen ? 'auto' : 'none',
-          transform: mobileOpen ? 'translateY(0)' : 'translateY(-12px)',
-          transition: 'opacity 240ms ease, transform 280ms cubic-bezier(0.22,1,0.36,1)',
-          display: 'flex',
-          flexDirection: 'column',
-          padding: '20px var(--gutter)',
-          gap: 0,
-        }}
-      >
-        {NAV_LINKS.map(({ to, label, code }) => {
-          const active = isActiveLink(to)
-          return (
-            <Link
-              key={to}
-              to={to}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 16,
-                padding: '18px 4px',
-                borderBottom: '1px dashed var(--border-hud)',
-                fontFamily: 'var(--font-mono)',
-                fontSize: 14,
-                letterSpacing: 2,
-                textTransform: 'uppercase',
-                textDecoration: 'none',
-                color: active ? 'var(--text-primary)' : 'var(--text-muted)',
-                fontWeight: active ? 600 : 500,
-              }}
-            >
-              <span style={{
-                fontSize: 11,
-                color: active ? 'var(--hud-cyan)' : 'var(--text-dim)',
-                minWidth: 24,
-              }}>
-                {code}
-              </span>
-              <span style={{ flex: 1 }}>{label}</span>
-              {active && <span style={{ color: 'var(--hud-cyan)' }}>●</span>}
-            </Link>
-          )
-        })}
-      </div>
-
       <style>{`
         .navbar-hamburger:hover {
           border-color: var(--hud-cyan) !important;
@@ -370,5 +315,69 @@ export function Navbar() {
         }
       `}</style>
     </nav>
+
+    {/* ─── Mobile drawer (rendered as sibling of <nav>, NOT child).
+         backdrop-filter requires the element to participate in the
+         body-level stacking context — nesting inside a fixed/translated
+         <nav> breaks the filter on iOS Safari and some Chromium builds. */}
+    <div
+      className="navbar-drawer"
+      data-open={mobileOpen}
+      style={{
+        position: 'fixed',
+        top: 56, left: 0, right: 0, bottom: 0,
+        zIndex: 49,
+        /* Frosted-glass overlay: dark tint dominates, blur softens what's left */
+        background: 'rgba(5, 7, 13, 0.78)',
+        backdropFilter: 'blur(28px) saturate(1.3)',
+        WebkitBackdropFilter: 'blur(28px) saturate(1.3)',
+        borderTop: '1px solid var(--border-hud)',
+        boxShadow: 'inset 0 -120px 120px -80px rgba(0,0,0,0.55)',
+        opacity: mobileOpen ? 1 : 0,
+        pointerEvents: mobileOpen ? 'auto' : 'none',
+        transform: mobileOpen ? 'translateY(0)' : 'translateY(-12px)',
+        transition: 'opacity 240ms ease, transform 280ms cubic-bezier(0.22,1,0.36,1)',
+        display: 'flex',
+        flexDirection: 'column',
+        padding: '20px var(--gutter)',
+        gap: 0,
+      }}
+    >
+      {NAV_LINKS.map(({ to, label, code }) => {
+        const active = isActiveLink(to)
+        return (
+          <Link
+            key={to}
+            to={to}
+            aria-current={active ? 'page' : undefined}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 16,
+              padding: '18px 4px',
+              borderBottom: '1px dashed var(--border-hud)',
+              fontFamily: 'var(--font-mono)',
+              fontSize: 14,
+              letterSpacing: 2,
+              textTransform: 'uppercase',
+              textDecoration: 'none',
+              color: active ? 'var(--text-primary)' : 'var(--text-muted)',
+              fontWeight: active ? 600 : 500,
+            }}
+          >
+            <span style={{
+              fontSize: 11,
+              color: active ? 'var(--hud-cyan)' : 'var(--text-dim)',
+              minWidth: 24,
+            }}>
+              {code}
+            </span>
+            <span style={{ flex: 1 }}>{label}</span>
+            {active && <span style={{ color: 'var(--hud-cyan)' }}>●</span>}
+          </Link>
+        )
+      })}
+    </div>
+    </>
   )
 }

@@ -58,6 +58,47 @@
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
+/* Prevent any single element from forcing horizontal scroll on the page.
+   Individual sections that need internal scroll should set `overflow-x: auto`
+   on their own container, never on the page root. */
+html, body { overflow-x: hidden; }
+
+/* ══════════════════════════════════════════════════════════════
+   A11y: visible focus rings.
+   We strip the default browser outline globally (it doesn't fit the
+   HUD aesthetic) and replace it with a deliberate cyan ring that only
+   appears on keyboard navigation (`:focus-visible`). Mouse clicks
+   never trigger the ring, so it stays out of the way for pointer users.
+══════════════════════════════════════════════════════════════ */
+*:focus { outline: none; }
+*:focus-visible {
+  outline: 2px solid var(--hud-cyan);
+  outline-offset: 2px;
+  border-radius: 1px;
+}
+/* CTAs and chips that already have a clipPath shape need the ring drawn
+   slightly tighter and via box-shadow to follow the clip silhouette. */
+.hud-cta-primary:focus-visible,
+.hud-cta-secondary:focus-visible,
+.filter-chip:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--hud-cyan), 0 0 0 4px rgba(34, 211, 238, 0.25);
+}
+
+/* Reduced motion — kill ambient/decorative animation. Functional
+   transitions (open/close, hover color) stay so the UI still feels
+   responsive; only the looping background motion is silenced. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+  .stars, .stars2, .stars3,
+  .nebula, .scanlines, .shooting-star {
+    animation: none !important;
+  }
+}
+
 html {
   scroll-behavior: smooth;
 }
@@ -225,8 +266,10 @@ input:focus, select:focus, textarea:focus { outline: none; }
 
 /* ── Sparkline stroke draw ── */
 .sparkline-path {
-  stroke-dasharray: 300;
-  stroke-dashoffset: 300;
+  /* Dash length must comfortably exceed the longest possible path length
+     (viewBox is 200×30 → max ~250 units even with a wiggly curve). */
+  stroke-dasharray: 500;
+  stroke-dashoffset: 500;
   transition: stroke-dashoffset 1500ms cubic-bezier(0.22, 1, 0.36, 1) 300ms;
 }
 .sparkline-fill {
@@ -347,17 +390,73 @@ input:focus, select:focus, textarea:focus { outline: none; }
 }
 
 /* ══════════════════════════════════════════════════════════════
-   Glassmorphic surface — shared by .hud-card and .hud-glass
+   Layered glass system — three stacked surfaces for depth
+   ─────────────────────────────────────────────────────────────
+   Layer 1 (background)   · backdrop-filter blur + saturated tint
+   Layer 2 (::before)     · top-left specular sheen + bottom-edge
+                            light leak; gives the panel a "sun catch"
+                            highlight as if real glass is reflecting
+                            ambient light from above
+   Layer 3 (border + inset shadows) · 1px hairline + inner stroke
+                            that fades from top (bright) to bottom
+                            (dim) — mimics a thin chamfered bezel
 ══════════════════════════════════════════════════════════════ */
 .hud-card,
 .hud-glass {
   position: relative;
-  background: rgba(255, 255, 255, 0.028);
-  backdrop-filter: blur(16px) saturate(1.1);
-  -webkit-backdrop-filter: blur(16px) saturate(1.1);
+  background:
+    /* Layer 2a — bottom-edge cyan light leak (very subtle) */
+    radial-gradient(
+      ellipse 80% 40% at 50% 100%,
+      rgba(34, 211, 238, 0.022) 0%,
+      transparent 70%
+    ),
+    /* Layer 2b — top-left specular highlight (4% white sheen) */
+    radial-gradient(
+      ellipse 60% 50% at 20% 0%,
+      rgba(255, 255, 255, 0.04) 0%,
+      transparent 60%
+    ),
+    /* Layer 1 — base tinted glass */
+    rgba(255, 255, 255, 0.028);
+  backdrop-filter: blur(16px) saturate(1.15);
+  -webkit-backdrop-filter: blur(16px) saturate(1.15);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.05),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.015);
+    /* Top edge highlight (chamfered bezel feel) */
+    inset 0 1px 0 rgba(255, 255, 255, 0.07),
+    /* Inset hairline */
+    inset 0 0 0 1px rgba(255, 255, 255, 0.018),
+    /* Bottom-edge dim line (anchors the card to the page) */
+    inset 0 -1px 0 rgba(0, 0, 0, 0.18);
+}
+
+/* Layer 2 ambient sheen — diagonal top-left → bottom-right gradient
+   that becomes more visible on hover, simulating the surface tilting
+   under light. Implemented on ::before so .hud-card::after (scan line)
+   stays untouched. */
+.hud-card::before,
+.hud-glass::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.025) 0%,
+    transparent 35%,
+    transparent 65%,
+    rgba(0, 0, 0, 0.06) 100%
+  );
+  opacity: 0.7;
+  transition: opacity 280ms ease;
+  z-index: 0;
+}
+
+/* Make sure card content sits on top of the ::before glass layer. */
+.hud-card > *,
+.hud-glass > * {
+  position: relative;
+  z-index: 1;
 }
 
 .hud-card {
@@ -371,12 +470,28 @@ input:focus, select:focus, textarea:focus { outline: none; }
 
 .hud-card:hover {
   border-color: var(--hud-cyan-halo);
-  background: rgba(34, 211, 238, 0.035);
+  background:
+    radial-gradient(
+      ellipse 80% 40% at 50% 100%,
+      rgba(34, 211, 238, 0.06) 0%,
+      transparent 70%
+    ),
+    radial-gradient(
+      ellipse 60% 50% at 20% 0%,
+      rgba(255, 255, 255, 0.06) 0%,
+      transparent 60%
+    ),
+    rgba(34, 211, 238, 0.035);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.09),
-    inset 0 0 0 1px rgba(34, 211, 238, 0.12),
-    0 14px 40px rgba(0, 0, 0, 0.42),
-    0 0 32px rgba(34, 211, 238, 0.10);
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    inset 0 0 0 1px rgba(34, 211, 238, 0.14),
+    inset 0 -1px 0 rgba(34, 211, 238, 0.18),
+    0 14px 40px rgba(0, 0, 0, 0.46),
+    0 0 32px rgba(34, 211, 238, 0.12);
+}
+
+.hud-card:hover::before {
+  opacity: 1;
 }
 
 .hud-card::after {
@@ -387,8 +502,27 @@ input:focus, select:focus, textarea:focus { outline: none; }
   background: linear-gradient(to right, transparent, var(--hud-line) 50%, transparent);
   opacity: 0;
   pointer-events: none;
+  z-index: 2;
 }
 
 .hud-card:hover::after {
   animation: hud-card-scan 1.6s ease-in-out;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   Page hero eyebrow tail — collapses decorative items on mobile
+   so the hatch + tracking code + barcode cluster doesn't overflow
+══════════════════════════════════════════════════════════════ */
+.page-eyebrow-tail {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 600px) {
+  .page-eyebrow-tail [data-tail-barcode] { display: none; }
+}
+@media (max-width: 380px) {
+  .page-eyebrow-tail [data-tail-hatch] { display: none; }
 }
